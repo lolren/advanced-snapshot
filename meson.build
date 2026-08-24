@@ -1,6 +1,6 @@
 project(
   'snapshot',
-  'rust',
+  'rust', 'c',
   version: '50.0',
   meson_version: '>= 1.7',
   license: 'GPL-3.0-or-later',
@@ -18,6 +18,7 @@ dependency('glycin-2', version: '>= 2')
 dependency('glycin-gtk4-2', version: '>= 2')
 dependency('gstreamer-1.0', version: '>= 1.20')
 dependency('gstreamer-video-1.0', version: '>= 1.20')
+pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3')
 # Needed for camerabin
 dependency('gstreamer-plugins-bad-1.0', version: '>= 1.20')
 # Required by glycin crate
@@ -37,6 +38,7 @@ version = meson.project_version()
 
 prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
+libexecdir = prefix / get_option('libexecdir')
 localedir = prefix / get_option('localedir')
 
 datadir = prefix / get_option('datadir')
@@ -83,6 +85,7 @@ cargo_target = meson.project_build_root() / 'cargo-target'
 cargo_env = environment()
 cargo_env.set('CARGO_HOME', cargo_home)
 cargo_env.set('CARGO_TARGET_DIR', cargo_target)
+cargo_env.set('SNAPSHOT_FOCUS_HELPER', libexecdir / 'snapshot-focus-control')
 
 meson.add_devenv(cargo_env)
 

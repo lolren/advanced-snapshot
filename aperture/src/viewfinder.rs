@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 use gst::prelude::*;
 use gtk::prelude::*;
@@ -18,6 +20,10 @@ use crate::code_detector::QrCodeDetector;
 /// quality and file size. Candidate for a preference.
 const DEFAULT_BITRATE: u32 = 2048;
 const PROVIDER_TIMEOUT: u64 = 2;
+const FOCUS_HELPER: &str = match option_env!("SNAPSHOT_FOCUS_HELPER") {
+    Some(path) => path,
+    None => "snapshot-focus-control",
+};
 
 #[derive(Debug)]
 enum StateChangeState {
@@ -69,9 +75,15 @@ mod imp {
         pub is_front_camera: Cell<bool>,
 
         pub timeout_handler: RefCell<Option<glib::SourceId>>,
+        pub focus_indicator_handler: RefCell<Option<glib::SourceId>>,
+        pub focus_reset_handler: RefCell<Option<glib::SourceId>>,
+        pub focus_point: Cell<Option<(f64, f64)>>,
+        pub focus_generation: Cell<u64>,
 
         pub picture: gtk::Picture,
         pub offload: gtk::GraphicsOffload,
+        pub overlay: gtk::Overlay,
+        pub focus_overlay: gtk::DrawingArea,
     }
 
     impl Viewfinder {
@@ -83,6 +95,19 @@ mod imp {
             if state != self.state.replace(state) {
                 self.obj().notify_state();
             }
+        }
+
+        pub(super) fn clear_focus_state(&self) {
+            self.focus_generation
+                .set(self.focus_generation.get().wrapping_add(1));
+            if let Some(handler) = self.focus_indicator_handler.take() {
+                handler.remove();
+            }
+            if let Some(handler) = self.focus_reset_handler.take() {
+                handler.remove();
+            }
+            self.focus_point.set(None);
+            self.focus_overlay.set_visible(false);
         }
 
         fn is_recording(&self) -> bool {
@@ -138,6 +163,7 @@ mod imp {
             if camera == self.camera.replace(camera.clone()) {
                 return;
             }
+            self.clear_focus_state();
 
             // We reset to READY if we landed on the ERROR state on the previous
             // camera.
@@ -333,11 +359,36 @@ mod imp {
                 .set_accessible_role(gtk::AccessibleRole::Presentation);
             self.picture.set_hexpand(true);
             self.picture.set_vexpand(true);
+            self.picture.set_content_fit(gtk::ContentFit::Contain);
             self.picture.set_paintable(Some(&paintable));
 
             self.offload.set_child(Some(&self.picture));
-            self.offload.set_parent(&*obj);
             self.offload.set_black_background(true);
+
+            self.focus_overlay.set_can_target(false);
+            self.focus_overlay.set_hexpand(true);
+            self.focus_overlay.set_vexpand(true);
+            self.focus_overlay.set_visible(false);
+            self.focus_overlay.set_draw_func(glib::clone!(
+                #[weak]
+                obj,
+                move |_, context, width, height| {
+                    obj.draw_focus_indicator(context, width, height);
+                }
+            ));
+
+            self.overlay.set_child(Some(&self.offload));
+            self.overlay.add_overlay(&self.focus_overlay);
+            self.overlay.set_parent(&*obj);
+
+            let focus_gesture = gtk::GestureClick::new();
+            focus_gesture.set_button(gdk::BUTTON_PRIMARY);
+            focus_gesture.connect_released(glib::clone!(
+                #[weak]
+                obj,
+                move |_, _, x, y| obj.focus_at(x, y)
+            ));
+            obj.add_controller(focus_gesture);
 
             self.tee.set(tee).unwrap();
 
@@ -395,6 +446,7 @@ mod imp {
         }
 
         fn dispose(&self) {
+            self.clear_focus_state();
             if self.is_recording_video.borrow().is_some()
                 && let Err(err) = self.obj().stop_recording()
             {
@@ -404,7 +456,7 @@ mod imp {
                 log::error!("Could not stop camerabin: {err}");
             }
 
-            self.offload.unparent();
+            self.overlay.unparent();
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -569,6 +621,184 @@ impl Viewfinder {
         } else {
             0.0
         }
+    }
+
+    fn focus_at(&self, widget_x: f64, widget_y: f64) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(camera) = self.camera() else {
+            return;
+        };
+        if !matches!(camera.location(), crate::CameraLocation::Back) {
+            return;
+        }
+        let Some(serial) = camera.target_object() else {
+            log::debug!("Tap-to-focus unavailable: camera has no PipeWire serial");
+            return;
+        };
+        let Some((focus_x, focus_y)) = self.focus_coordinates(widget_x, widget_y) else {
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_focus_state();
+        let generation = imp.focus_generation.get();
+
+        let serial_arg = serial.to_string();
+        let x_arg = format!("{focus_x:.8}");
+        let y_arg = format!("{focus_y:.8}");
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("focus"),
+            OsStr::new(&serial_arg),
+            OsStr::new(&x_arg),
+            OsStr::new(&y_arg),
+            OsStr::new("0.18"),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start tap-to-focus helper: {err}");
+                return;
+            }
+        };
+
+        let widget_width = self.width().max(1) as f64;
+        let widget_height = self.height().max(1) as f64;
+        let indicator_point = (widget_x / widget_width, widget_y / widget_height);
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                match process.wait_check_future().await {
+                    Ok(()) => viewfinder.show_focus_indicator(generation, serial, indicator_point),
+                    Err(err) => log::debug!("Tap-to-focus was not applied: {err}"),
+                }
+            }
+        ));
+    }
+
+    fn focus_coordinates(&self, widget_x: f64, widget_y: f64) -> Option<(f64, f64)> {
+        let paintable = self.imp().picture.paintable()?;
+        let frame_width = paintable.intrinsic_width() as f64;
+        let frame_height = paintable.intrinsic_height() as f64;
+        let widget_width = self.width() as f64;
+        let widget_height = self.height() as f64;
+        if frame_width <= 0.0 || frame_height <= 0.0 || widget_width <= 0.0 || widget_height <= 0.0
+        {
+            return None;
+        }
+
+        let scale = (widget_width / frame_width).min(widget_height / frame_height);
+        let display_width = frame_width * scale;
+        let display_height = frame_height * scale;
+        let offset_x = (widget_width - display_width) / 2.0;
+        let offset_y = (widget_height - display_height) / 2.0;
+        if widget_x < offset_x
+            || widget_x > offset_x + display_width
+            || widget_y < offset_y
+            || widget_y > offset_y + display_height
+        {
+            return None;
+        }
+
+        Some((
+            ((widget_x - offset_x) / display_width).clamp(0.0, 1.0),
+            ((widget_y - offset_y) / display_height).clamp(0.0, 1.0),
+        ))
+    }
+
+    fn show_focus_indicator(&self, generation: u64, serial: u64, point: (f64, f64)) {
+        let imp = self.imp();
+        if imp.focus_generation.get() != generation
+            || self.camera().and_then(|camera| camera.target_object()) != Some(serial)
+        {
+            return;
+        }
+
+        imp.focus_point.set(Some(point));
+        imp.focus_overlay.set_visible(true);
+        imp.focus_overlay.queue_draw();
+        let indicator_handler = glib::timeout_add_local_once(
+            Duration::from_millis(1600),
+            glib::clone!(
+                #[weak(rename_to = viewfinder)]
+                self,
+                move || {
+                    let imp = viewfinder.imp();
+                    imp.focus_indicator_handler.take();
+                    if imp.focus_generation.get() == generation {
+                        imp.focus_point.set(None);
+                        imp.focus_overlay.set_visible(false);
+                    }
+                }
+            ),
+        );
+        imp.focus_indicator_handler.replace(Some(indicator_handler));
+
+        let reset_handler = glib::timeout_add_seconds_local_once(
+            8,
+            glib::clone!(
+                #[weak(rename_to = viewfinder)]
+                self,
+                move || {
+                    viewfinder.imp().focus_reset_handler.take();
+                    if viewfinder
+                        .camera()
+                        .and_then(|camera| camera.target_object())
+                        == Some(serial)
+                    {
+                        viewfinder.reset_focus(serial);
+                    }
+                }
+            ),
+        );
+        imp.focus_reset_handler.replace(Some(reset_handler));
+    }
+
+    fn reset_focus(&self, serial: u64) {
+        let serial_arg = serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("reset"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::debug!("Could not restore continuous autofocus: {err}");
+                return;
+            }
+        };
+
+        glib::spawn_future_local(async move {
+            if let Err(err) = process.wait_check_future().await {
+                log::debug!("Could not restore continuous autofocus: {err}");
+            }
+        });
+    }
+
+    fn draw_focus_indicator(&self, context: &gtk::cairo::Context, width: i32, height: i32) {
+        let Some((x, y)) = self.imp().focus_point.get() else {
+            return;
+        };
+        let center_x = x * width as f64;
+        let center_y = y * height as f64;
+        let radius = (width.min(height) as f64 * 0.055).clamp(18.0, 34.0);
+        let corner = radius * 0.45;
+
+        context.set_source_rgba(1.0, 0.84, 0.16, 0.96);
+        context.set_line_width(2.5);
+        for (horizontal, vertical) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+            let corner_x = center_x + horizontal * radius;
+            let corner_y = center_y + vertical * radius;
+            context.move_to(corner_x - horizontal * corner, corner_y);
+            context.line_to(corner_x, corner_y);
+            context.line_to(corner_x, corner_y - vertical * corner);
+        }
+        let _ = context.stroke();
     }
 
     /// Takes a picture.

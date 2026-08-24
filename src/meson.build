@@ -16,6 +16,14 @@ config = configure_file(
   output: 'config.rs',
   configuration: global_conf
 )
+
+executable(
+  'snapshot-focus-control',
+  'focus-control.c',
+  dependencies: pipewire_dep,
+  install: true,
+  install_dir: libexecdir,
+)
 # Copy the config.rs output to the source directory.
 run_command(
   'cp',
