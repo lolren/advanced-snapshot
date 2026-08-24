@@ -24,7 +24,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate)]
-    #[template(resource = "/org/gnome/Snapshot/ui/gallery.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/gallery.ui")]
     pub struct Gallery {
         #[template_child]
         pub sliding_view: TemplateChild<crate::SlidingView>,

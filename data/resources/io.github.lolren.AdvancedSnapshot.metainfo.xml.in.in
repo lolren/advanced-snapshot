@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>@app-id@</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Advanced Snapshot</name>
+  <summary>A mobile-first camera with truthful manual controls</summary>
+  <description>
+    <p>
+      Advanced Snapshot takes pictures and videos through PipeWire. It adds
+      full-frame stills, sensor-aware tap-to-focus, visible image controls and
+      a mobile interface while exposing only features implemented by the
+      active camera stack.
+    </p>
+    <p>
+      It is an independent GPL-compatible fork of GNOME Snapshot and retains
+      the original project history and attribution.
+    </p>
+  </description>
+  <launchable type="desktop-id">@app-id@.desktop</launchable>
+  <url type="homepage">https://github.com/lolren/advanced-snapshot</url>
+  <url type="bugtracker">https://github.com/lolren/advanced-snapshot/issues</url>
+  <url type="vcs-browser">https://github.com/lolren/advanced-snapshot</url>
+  <url type="contribute">https://github.com/lolren/advanced-snapshot/blob/main/CONTRIBUTING.md</url>
+  <developer id="io.github.lolren">
+    <name>Lolren</name>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-08-24">
+      <description>
+        <p>Initial independently installable development baseline.</p>
+        <ul>
+          <li>Full-frame 2048x1536 still selection</li>
+          <li>Rear sensor-region tap-to-focus</li>
+          <li>Exposure, colour, contrast, detail and zoom controls</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -14,7 +14,7 @@ mod imp {
     use super::*;
 
     #[derive(Default, Debug, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/org/gnome/Snapshot/ui/camera_controls.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/camera_controls.ui")]
     #[properties(wrapper_type = super::CameraControls)]
     pub struct CameraControls {
         pub provider: OnceCell<aperture::DeviceProvider>,

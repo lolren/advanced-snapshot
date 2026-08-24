@@ -78,7 +78,7 @@ struct app {
 static void finish(struct app *app, int result, const char *message)
 {
 	if (message)
-		fprintf(stderr, "snapshot-focus-control: %s\n", message);
+		fprintf(stderr, "advanced-snapshot-focus-control: %s\n", message);
 	app->result = result;
 	pw_main_loop_quit(app->loop);
 }
@@ -477,7 +477,7 @@ int main(int argc, char **argv)
 
 	app.core = pw_context_connect(app.context, NULL, 0);
 	if (!app.core) {
-		fprintf(stderr, "snapshot-focus-control: cannot connect to PipeWire: %s\n",
+		fprintf(stderr, "advanced-snapshot-focus-control: cannot connect to PipeWire: %s\n",
 			strerror(errno));
 		goto cleanup;
 	}

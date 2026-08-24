@@ -11,7 +11,7 @@ mod imp {
     use std::cell::RefCell;
 
     #[derive(Debug, Default, CompositeTemplate, Properties)]
-    #[template(resource = "/org/gnome/Snapshot/ui/qr_bottom_sheet.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/qr_bottom_sheet.ui")]
     #[properties(wrapper_type = super::QrBottomSheet)]
     pub struct QrBottomSheet {
         #[template_child]

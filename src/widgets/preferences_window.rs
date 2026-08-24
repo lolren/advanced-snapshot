@@ -12,7 +12,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/org/gnome/Snapshot/ui/preferences_window.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/preferences_window.ui")]
     #[properties(wrapper_type = super::PreferencesWindow)]
     pub struct PreferencesWindow {
         settings: OnceCell<gio::Settings>,

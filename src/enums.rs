@@ -3,7 +3,7 @@ use gettextrs::gettext;
 use gtk::glib;
 use gtk::prelude::*;
 
-/// Enum representing the org.gnome.Snapshot.PictureFormat enum defined in
+/// Enum representing the Advanced Snapshot PictureFormat enum defined in
 /// the gschema.
 #[derive(Default, Debug, Copy, Clone, PartialEq, glib::Enum)]
 #[repr(u32)]
@@ -38,7 +38,7 @@ impl From<i32> for PictureFormat {
     }
 }
 
-/// Enum representing the org.gnome.Snapshot.CaptureMode enum defined in
+/// Enum representing the Advanced Snapshot CaptureMode enum defined in
 /// the gschema.
 #[derive(Default, Debug, Copy, Clone, PartialEq, glib::Enum)]
 #[enum_type(name = "CaptureMode")]

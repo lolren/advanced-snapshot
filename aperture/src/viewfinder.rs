@@ -20,9 +20,9 @@ use crate::code_detector::QrCodeDetector;
 /// quality and file size. Candidate for a preference.
 const DEFAULT_BITRATE: u32 = 2048;
 const PROVIDER_TIMEOUT: u64 = 2;
-const FOCUS_HELPER: &str = match option_env!("SNAPSHOT_FOCUS_HELPER") {
+const FOCUS_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FOCUS_HELPER") {
     Some(path) => path,
-    None => "snapshot-focus-control",
+    None => "advanced-snapshot-focus-control",
 };
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 project(
-  'snapshot',
+  'advanced-snapshot',
   'rust', 'c',
-  version: '50.0',
+  version: '0.1.0',
   meson_version: '>= 1.7',
   license: 'GPL-3.0-or-later',
 )
@@ -9,7 +9,7 @@ project(
 i18n = import('i18n')
 gnome = import('gnome')
 
-base_id = 'org.gnome.Snapshot'
+base_id = 'io.github.lolren.AdvancedSnapshot'
 
 dependency('glib-2.0', version: '>= 2.75')
 dependency('gtk4', version: '>= 4.18')
@@ -85,7 +85,10 @@ cargo_target = meson.project_build_root() / 'cargo-target'
 cargo_env = environment()
 cargo_env.set('CARGO_HOME', cargo_home)
 cargo_env.set('CARGO_TARGET_DIR', cargo_target)
-cargo_env.set('SNAPSHOT_FOCUS_HELPER', libexecdir / 'snapshot-focus-control')
+cargo_env.set(
+  'ADVANCED_SNAPSHOT_FOCUS_HELPER',
+  libexecdir / 'advanced-snapshot-focus-control',
+)
 
 meson.add_devenv(cargo_env)
 

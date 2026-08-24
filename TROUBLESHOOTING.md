@@ -1,15 +1,21 @@
 # Troubleshooting
 
-## Flatpak
-Snapshot relies on number of modern components which are under rapid development. Thus, in order to simplify debugging, please try the [Flatpack from Flathub](https://flathub.org/apps/org.gnome.Snapshot) before reporting issues.
+## Compare with upstream
+
+Advanced Snapshot is not yet published on Flathub. When a generic webcam path
+fails, compare it with the distro or
+[Flathub GNOME Snapshot](https://flathub.org/apps/org.gnome.Snapshot) build and
+report which application, version and PipeWire node was tested. A failure that
+occurs only with the OnePlus camera stack should include the package revisions
+from the VibeMarketOS manifest.
 
 ## Pipewire
-Snapshot exclusively uses [Pipewire](https://gitlab.freedesktop.org/pipewire/pipewire/) (from here on **PW**) to access camera devices.
+Advanced Snapshot exclusively uses [PipeWire](https://gitlab.freedesktop.org/pipewire/pipewire/) (from here on **PW**) to access camera devices.
 
 Please restart PW to ensure all camera devices are found:
 
 ```
-systemctl --user restart pipewire
+systemctl --user restart pipewire wireplumber
 ```
 
 A useful tool to look up information from PW is `pw-dump`. In order to check whether PW currently recognizes any camera devices, run:
@@ -30,7 +36,9 @@ Snapshot uses the camera portal to request camera access. There are desktop envi
 * [KDE](https://github.com/KDE/xdg-desktop-portal-kde)
 * [wlroots](https://github.com/emersion/xdg-desktop-portal-wlr) (Sway, Phosh, Hyprland etc.)
 
-If Snapshot can't find any devices, you can check camera permissions in various ways, a simple one being [Flatseal](https://flathub.org/apps/com.github.tchx84.Flatseal).
+If Advanced Snapshot cannot find any devices, check the desktop camera-portal
+permission and backend configuration. Flatseal is useful only for a Flatpak
+build; a native postmarketOS package uses the host portal directly.
 
 ## Gstreamer
 Snapshot uses `GstPipeWire` components. In order to list available cameras and additional information about them, look for entries that contain `gst-launch-1.0 pipewiresrc` when running:
@@ -54,7 +62,7 @@ In case the issue persists you can get debug output for the application by
 running:
 
 ```
-RUST_LOG=snapshot=debug,aperture=debug flatpak run org.gnome.Snapshot
+RUST_LOG=advanced_snapshot=debug,aperture=debug advanced-snapshot --debug
 ```
 
 If you file an issue make sure to include the version info from the

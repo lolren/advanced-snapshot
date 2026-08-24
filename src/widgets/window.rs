@@ -18,7 +18,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, CompositeTemplate)]
-    #[template(resource = "/org/gnome/Snapshot/ui/window.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/window.ui")]
     pub struct Window {
         #[template_child]
         pub camera: TemplateChild<crate::Camera>,
@@ -311,11 +311,15 @@ impl Window {
 
     fn show_about_dialog(&self) {
         let dialog = adw::AboutDialog::from_appdata(
-            &format!("/org/gnome/Snapshot/{APP_ID}.metainfo.xml"),
+            &format!("/io/github/lolren/AdvancedSnapshot/{APP_ID}.metainfo.xml"),
             VERSION.split('-').next(),
         );
         dialog.set_translator_credits(&gettext("translator-credits"));
-        dialog.set_developers(&["Maximiliano Sandoval", "Jamie Murphy <jmurphy@gnome.org>"]);
+        dialog.set_developers(&[
+            "Lolren <loren.bufanu@gmail.com>",
+            "Maximiliano Sandoval",
+            "Jamie Murphy <jmurphy@gnome.org>",
+        ]);
         dialog.set_designers(&["Tobias Bernard"]);
         dialog.set_debug_info(&utils::debug_info());
 

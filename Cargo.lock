@@ -3,6 +3,25 @@
 version = 4
 
 [[package]]
+name = "advanced-snapshot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "aperture",
+ "ashpd",
+ "formatx",
+ "futures-channel",
+ "gettext-rs",
+ "gstreamer",
+ "gtk4",
+ "libadwaita",
+ "libglycin-gtk4-rebind",
+ "libglycin-rebind",
+ "log",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1633,25 +1652,6 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
-
-[[package]]
-name = "snapshot"
-version = "46.0.0"
-dependencies = [
- "anyhow",
- "aperture",
- "ashpd",
- "formatx",
- "futures-channel",
- "gettext-rs",
- "gstreamer",
- "gtk4",
- "libadwaita",
- "libglycin-gtk4-rebind",
- "libglycin-rebind",
- "log",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "static_assertions"

@@ -24,7 +24,7 @@ mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate, glib::Properties)]
-    #[template(resource = "/org/gnome/Snapshot/ui/camera.ui")]
+    #[template(resource = "/io/github/lolren/AdvancedSnapshot/ui/camera.ui")]
     #[properties(wrapper_type = super::Camera)]
     pub struct Camera {
         pub selection: gtk::SingleSelection,
@@ -515,7 +515,7 @@ impl Camera {
     fn play_shutter_sound(&self) {
         // If we don't hold a reference to it there is a condition race which
         // will cause the sound to play only sometimes.
-        let resource = "/org/gnome/Snapshot/sounds/camera-shutter.wav";
+        let resource = "/io/github/lolren/AdvancedSnapshot/sounds/camera-shutter.wav";
         let player = gtk::MediaFile::for_resource(resource);
         player.play();
 

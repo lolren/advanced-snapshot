@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schemalist>
+  <enum id="io.github.lolren.AdvancedSnapshot.CaptureMode">
+    <value nick="picture" value="0" />
+    <value nick="video" value="1" />
+    <value nick="qr-detection" value="2" />
+  </enum>
+  <enum id="io.github.lolren.AdvancedSnapshot.PictureFormat">
+    <value nick="jpeg" value="0" />
+  </enum>
+  <schema path="/io/github/lolren/AdvancedSnapshot/" id="@app-id@" gettext-domain="@gettext-package@">
+    <key name="window-width" type="i">
+      <default>800</default>
+      <summary>Default window width</summary>
+      <description>Default window width</description>
+    </key>
+    <key name="window-height" type="i">
+      <default>640</default>
+      <summary>Default window height</summary>
+      <description>Default window height</description>
+    </key>
+    <key name="is-maximized" type="b">
+      <default>false</default>
+      <summary>Default window maximized behaviour</summary>
+      <description>Whether the application window was maximized</description>
+    </key>
+    <key name="play-shutter-sound" type="b">
+      <default>true</default>
+      <summary>Play shutter sound</summary>
+      <description>Whether to play a shutter sound when taking pictures</description>
+    </key>
+    <key name="show-composition-guidelines" type="b">
+      <default>false</default>
+      <summary>Show composition guidelines</summary>
+      <description>Whether to draw composition guidelines over the preview</description>
+    </key>
+    <key name="enable-audio-recording" type="b">
+      <default>true</default>
+      <summary>Enable audio recording</summary>
+      <description>Whether to record audio when recording video</description>
+    </key>
+    <key name="enable-hardware-encoding" type="b">
+      <default>false</default>
+      <summary>Enable hardware recording</summary>
+      <description>Whether to prefer hardware video encoding</description>
+    </key>
+    <key name="countdown" type="i">
+      <default>0</default>
+      <summary>Countdown timer</summary>
+      <description>The photo countdown duration in seconds</description>
+    </key>
+    <key name="capture-mode" enum="io.github.lolren.AdvancedSnapshot.CaptureMode">
+      <default>"picture"</default>
+      <summary>Capture mode</summary>
+      <description>Whether to take pictures or videos</description>
+    </key>
+    <key name="picture-format" enum="io.github.lolren.AdvancedSnapshot.PictureFormat">
+      <default>"jpeg"</default>
+      <summary>Picture format</summary>
+      <description>The format used when saving pictures</description>
+    </key>
+    <key name="last-camera-id" type="s">
+      <default>""</default>
+      <summary>Last camera ID</summary>
+      <description>An ID representing the last used camera</description>
+    </key>
+  </schema>
+</schemalist>

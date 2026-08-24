@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <template class="Window" parent="AdwApplicationWindow">
-    <property name="title" translatable="yes">Camera</property>
+    <property name="title" translatable="yes">Advanced Snapshot</property>
     <child>
       <object class="AdwToastOverlay" id="toast_overlay">
         <child>
           <object class="AdwNavigationView" id="navigation_view">
             <child>
               <object class="AdwNavigationPage" id="camera_page">
-                <property name="title" translatable="yes">Camera</property>
+                <property name="title" translatable="yes">Advanced Snapshot</property>
                 <signal name="hidden" handler="on_camera_page_hidden" swapped="yes"/>
                 <signal name="showing" handler="on_camera_page_showing" swapped="yes"/>
                 <child>

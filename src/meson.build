@@ -18,7 +18,7 @@ config = configure_file(
 )
 
 executable(
-  'snapshot-focus-control',
+  'advanced-snapshot-focus-control',
   'focus-control.c',
   dependencies: pipewire_dep,
   install: true,

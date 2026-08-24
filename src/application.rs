@@ -44,7 +44,10 @@ mod imp {
         ) -> std::ops::ControlFlow<glib::ExitCode> {
             // Initialize logger
             let is_debug = options.lookup::<bool>("debug").unwrap().unwrap_or_default()
-                || !glib::log_writer_default_would_drop(glib::LogLevel::Debug, Some("snapshot"));
+                || !glib::log_writer_default_would_drop(
+                    glib::LogLevel::Debug,
+                    Some("advanced_snapshot"),
+                );
 
             if is_debug {
                 tracing_subscriber::fmt()
@@ -75,7 +78,7 @@ mod imp {
         }
 
         fn startup(&self) {
-            info!("Snapshot ({APP_ID})");
+            info!("Advanced Snapshot ({APP_ID})");
             if IS_DEVEL {
                 info!("Version: {VERSION} ({PROFILE})");
             } else {
@@ -116,7 +119,7 @@ impl Default for Application {
     fn default() -> Self {
         glib::Object::builder()
             .property("application-id", APP_ID)
-            .property("resource-base-path", "/org/gnome/Snapshot/")
+            .property("resource-base-path", "/io/github/lolren/AdvancedSnapshot/")
             .build()
     }
 }
