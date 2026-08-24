@@ -114,7 +114,7 @@ pub fn debug_info() -> String {
                     format!(
                         "{} {}: {:#?}",
                         camera.display_name(),
-                        d.device_class(),
+                        gst::prelude::DeviceExt::device_class(&d),
                         camera.properties()
                     )
                 })

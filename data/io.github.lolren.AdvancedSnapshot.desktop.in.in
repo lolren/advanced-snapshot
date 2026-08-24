@@ -5,7 +5,7 @@ Comment=Take finely controlled pictures and videos
 Type=Application
 Exec=advanced-snapshot
 Terminal=false
-Categories=AudioVideo;Video;Recorder;Photography;Graphics;GNOME;GTK;
+Categories=AudioVideo;Video;Recorder;GNOME;GTK;
 # Translators: Search terms must retain the semicolons and final semicolon.
 Keywords=picture;photos;camera;webcam;snapshot;focus;exposure;
 # Translators: Do not translate or transliterate this icon file name.

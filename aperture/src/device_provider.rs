@@ -396,7 +396,10 @@ impl DeviceProvider {
                             && device == nth_device.device()
                         {
                             self.imp().remove(nth_device);
-                            log::debug!("Camera removed: {}", device.display_name());
+                            log::debug!(
+                                "Camera removed: {}",
+                                gst::prelude::DeviceExt::display_name(&device)
+                            );
                             break;
                         };
                     }
@@ -408,16 +411,13 @@ impl DeviceProvider {
 }
 
 fn is_camera(device: &gst::Device) -> bool {
-    device.has_classes("Video/Source")
-        && device
-            .caps()
+    gst::prelude::DeviceExt::has_classes(device, "Video/Source")
+        && gst::prelude::DeviceExt::caps(device)
             .is_some_and(|c| c.can_intersect(&crate::SUPPORTED_CAPS))
 }
 
 fn is_ir_camera(device: &crate::Camera) -> bool {
-    device
-        .device()
-        .caps()
+    gst::prelude::DeviceExt::caps(&device.device())
         .as_ref()
         .is_some_and(utils::caps::is_infrared)
         || device.nick().is_some_and(|nick| contains_ir(&nick))
