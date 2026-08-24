@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Submit a normalized tap-to-focus region to a libcamera PipeWire node. */
+/* Submit focus and image-adjustment controls to a libcamera PipeWire node. */
 
 #include <errno.h>
 #include <math.h>
@@ -25,6 +25,7 @@
 enum operation {
 	OPERATION_FOCUS,
 	OPERATION_RESET,
+	OPERATION_ADJUST,
 };
 
 enum stage {
@@ -50,11 +51,19 @@ struct app {
 	double focus_x;
 	double focus_y;
 	double focus_size;
+	double exposure_value;
+	double saturation;
+	double contrast;
+	double sharpness;
 
 	uint32_t af_mode_id;
 	uint32_t af_trigger_id;
 	uint32_t af_metering_id;
 	uint32_t af_windows_id;
+	uint32_t exposure_value_id;
+	uint32_t saturation_id;
+	uint32_t contrast_id;
+	uint32_t sharpness_id;
 	int crop_x;
 	int crop_y;
 	unsigned int crop_width;
@@ -159,6 +168,13 @@ static void add_int_property(struct spa_pod_builder *builder, uint32_t id,
 	spa_pod_builder_int(builder, value);
 }
 
+static void add_float_property(struct spa_pod_builder *builder, uint32_t id,
+			       float value)
+{
+	spa_pod_builder_prop(builder, id, 0);
+	spa_pod_builder_float(builder, value);
+}
+
 static int apply_controls(struct app *app)
 {
 	uint8_t buffer[512];
@@ -172,6 +188,15 @@ static int apply_controls(struct app *app)
 		/* AfModeContinuous and AfMeteringAuto. */
 		add_int_property(&builder, app->af_mode_id, 2);
 		add_int_property(&builder, app->af_metering_id, 0);
+	} else if (app->operation == OPERATION_ADJUST) {
+		add_float_property(&builder, app->exposure_value_id,
+				   (float)app->exposure_value);
+		add_float_property(&builder, app->saturation_id,
+				   (float)app->saturation);
+		add_float_property(&builder, app->contrast_id,
+				   (float)app->contrast);
+		add_float_property(&builder, app->sharpness_id,
+				   (float)app->sharpness);
 	} else {
 		double x = app->focus_x;
 		double y = app->focus_y;
@@ -246,6 +271,14 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->af_metering_id = control_id;
 	else if (spa_streq(description, "AfWindows"))
 		app->af_windows_id = control_id;
+	else if (spa_streq(description, "ExposureValue"))
+		app->exposure_value_id = control_id;
+	else if (spa_streq(description, "Saturation"))
+		app->saturation_id = control_id;
+	else if (spa_streq(description, "Contrast"))
+		app->contrast_id = control_id;
+	else if (spa_streq(description, "Sharpness"))
+		app->sharpness_id = control_id;
 }
 
 static void request_controls(struct app *app)
@@ -336,15 +369,23 @@ static void core_done(void *data, uint32_t id, int seq)
 	}
 
 	if (app->stage == STAGE_ENUM_CONTROLS) {
-		if (app->af_mode_id == 0 || app->af_metering_id == 0 ||
-		    (app->operation == OPERATION_FOCUS &&
-		     (app->af_trigger_id == 0 || app->af_windows_id == 0))) {
+		if ((app->operation == OPERATION_FOCUS &&
+		     (app->af_mode_id == 0 || app->af_metering_id == 0 ||
+		      app->af_trigger_id == 0 || app->af_windows_id == 0)) ||
+		    (app->operation == OPERATION_RESET &&
+		     (app->af_mode_id == 0 || app->af_metering_id == 0))) {
 			finish(app, 3, "camera does not support tap-to-focus");
+			return;
+		}
+		if (app->operation == OPERATION_ADJUST &&
+		    (app->exposure_value_id == 0 || app->saturation_id == 0 ||
+		     app->contrast_id == 0 || app->sharpness_id == 0)) {
+			finish(app, 3, "camera does not support image adjustments");
 			return;
 		}
 
 		if (apply_controls(app) < 0) {
-			finish(app, 4, "camera rejected focus controls");
+			finish(app, 4, "camera rejected controls");
 			return;
 		}
 		app->stage = STAGE_APPLY_CONTROLS;
@@ -382,8 +423,9 @@ static void usage(const char *program)
 {
 	fprintf(stderr,
 		"usage: %s focus SERIAL X Y SIZE\n"
-		"       %s reset SERIAL\n",
-		program, program);
+		"       %s reset SERIAL\n"
+		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n",
+		program, program, program);
 }
 
 int main(int argc, char **argv)
@@ -408,6 +450,17 @@ int main(int argc, char **argv)
 	} else if (argc == 3 && spa_streq(argv[1], "reset") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_RESET;
+	} else if (argc == 7 && spa_streq(argv[1], "adjust") &&
+		   parse_uint64(argv[2], &app.target_serial) &&
+		   parse_double(argv[3], &app.exposure_value) &&
+		   parse_double(argv[4], &app.saturation) &&
+		   parse_double(argv[5], &app.contrast) &&
+		   parse_double(argv[6], &app.sharpness) &&
+		   app.exposure_value >= -1.0 && app.exposure_value <= 1.0 &&
+		   app.saturation >= 0.0 && app.saturation <= 2.0 &&
+		   app.contrast >= 0.0 && app.contrast <= 2.0 &&
+		   app.sharpness >= 0.0 && app.sharpness <= 2.0) {
+		app.operation = OPERATION_ADJUST;
 	} else {
 		usage(argv[0]);
 		return 2;

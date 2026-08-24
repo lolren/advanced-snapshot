@@ -139,6 +139,9 @@ mod imp {
             klass.install_action("win.preferences", None, |window, _, _| {
                 window.show_preferences_window();
             });
+            klass.install_action("win.image-controls", None, |window, _, _| {
+                window.imp().camera.show_image_controls();
+            });
         }
 
         fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {

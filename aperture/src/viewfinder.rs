@@ -646,6 +646,11 @@ impl Viewfinder {
         imp.clear_focus_state();
         let generation = imp.focus_generation.get();
 
+        let widget_width = self.width().max(1) as f64;
+        let widget_height = self.height().max(1) as f64;
+        let indicator_point = (widget_x / widget_width, widget_y / widget_height);
+        self.show_focus_indicator(generation, serial, indicator_point);
+
         let serial_arg = serial.to_string();
         let x_arg = format!("{focus_x:.8}");
         let y_arg = format!("{focus_y:.8}");
@@ -665,15 +670,12 @@ impl Viewfinder {
             }
         };
 
-        let widget_width = self.width().max(1) as f64;
-        let widget_height = self.height().max(1) as f64;
-        let indicator_point = (widget_x / widget_width, widget_y / widget_height);
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = viewfinder)]
             self,
             async move {
                 match process.wait_check_future().await {
-                    Ok(()) => viewfinder.show_focus_indicator(generation, serial, indicator_point),
+                    Ok(()) => viewfinder.schedule_focus_reset(generation, serial),
                     Err(err) => log::debug!("Tap-to-focus was not applied: {err}"),
                 }
             }
@@ -722,7 +724,7 @@ impl Viewfinder {
         imp.focus_overlay.set_visible(true);
         imp.focus_overlay.queue_draw();
         let indicator_handler = glib::timeout_add_local_once(
-            Duration::from_millis(1600),
+            Duration::from_millis(2400),
             glib::clone!(
                 #[weak(rename_to = viewfinder)]
                 self,
@@ -737,6 +739,15 @@ impl Viewfinder {
             ),
         );
         imp.focus_indicator_handler.replace(Some(indicator_handler));
+    }
+
+    fn schedule_focus_reset(&self, generation: u64, serial: u64) {
+        let imp = self.imp();
+        if imp.focus_generation.get() != generation
+            || self.camera().and_then(|camera| camera.target_object()) != Some(serial)
+        {
+            return;
+        }
 
         let reset_handler = glib::timeout_add_seconds_local_once(
             8,
@@ -780,24 +791,85 @@ impl Viewfinder {
         });
     }
 
+    /// Applies software-ISP image adjustments to the active camera.
+    pub fn set_image_adjustments(
+        &self,
+        exposure: f64,
+        saturation: f64,
+        contrast: f64,
+        sharpness: f64,
+    ) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Image adjustments unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let arguments = [
+            serial.to_string(),
+            format!("{:.4}", exposure.clamp(-1.0, 1.0)),
+            format!("{:.4}", saturation.clamp(0.0, 2.0)),
+            format!("{:.4}", contrast.clamp(0.0, 2.0)),
+            format!("{:.4}", sharpness.clamp(0.0, 2.0)),
+        ];
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("adjust"),
+            OsStr::new(&arguments[0]),
+            OsStr::new(&arguments[1]),
+            OsStr::new(&arguments[2]),
+            OsStr::new(&arguments[3]),
+            OsStr::new(&arguments[4]),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start image-adjustment helper: {err}");
+                return;
+            }
+        };
+
+        glib::spawn_future_local(async move {
+            if let Err(err) = process.wait_check_future().await {
+                log::debug!("Image adjustments were not applied: {err}");
+            }
+        });
+    }
+
+    /// Sets Camerabin's capture-wide digital zoom factor.
+    pub fn set_zoom(&self, zoom: f64) {
+        let camerabin = self.imp().camerabin();
+        let max_zoom = camerabin.property::<f32>("max-zoom") as f64;
+        camerabin.set_property("zoom", zoom.clamp(1.0, max_zoom.min(4.0)) as f32);
+    }
+
     fn draw_focus_indicator(&self, context: &gtk::cairo::Context, width: i32, height: i32) {
         let Some((x, y)) = self.imp().focus_point.get() else {
             return;
         };
         let center_x = x * width as f64;
         let center_y = y * height as f64;
-        let radius = (width.min(height) as f64 * 0.055).clamp(18.0, 34.0);
-        let corner = radius * 0.45;
+        let radius = (width.min(height) as f64 * 0.075).clamp(28.0, 48.0);
+        let left = center_x - radius;
+        let top = center_y - radius;
+        let size = radius * 2.0;
 
-        context.set_source_rgba(1.0, 0.84, 0.16, 0.96);
+        // A dark keyline keeps the reticle legible against bright scenes.
+        context.set_source_rgba(0.0, 0.0, 0.0, 0.72);
+        context.set_line_width(5.0);
+        context.rectangle(left, top, size, size);
+        let _ = context.stroke();
+
+        context.set_source_rgba(1.0, 0.84, 0.16, 1.0);
         context.set_line_width(2.5);
-        for (horizontal, vertical) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
-            let corner_x = center_x + horizontal * radius;
-            let corner_y = center_y + vertical * radius;
-            context.move_to(corner_x - horizontal * corner, corner_y);
-            context.line_to(corner_x, corner_y);
-            context.line_to(corner_x, corner_y - vertical * corner);
-        }
+        context.rectangle(left, top, size, size);
+        context.move_to(center_x - 5.0, center_y);
+        context.line_to(center_x + 5.0, center_y);
+        context.move_to(center_x, center_y - 5.0);
+        context.line_to(center_x, center_y + 5.0);
         let _ = context.stroke();
     }
 

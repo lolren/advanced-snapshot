@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 use std::os::unix::io::OwnedFd;
+use std::time::Duration;
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -34,6 +35,7 @@ mod imp {
 
         pub recording_duration: Cell<u32>,
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
+        pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
 
         #[property(get, set = Self::set_capture_mode, explicit_notify, default)]
         capture_mode: Cell<crate::CaptureMode>,
@@ -68,7 +70,21 @@ mod imp {
         #[template_child]
         pub bottom_sheet: TemplateChild<adw::BottomSheet>,
         #[template_child]
+        pub sheet_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
         pub qr_bottom_sheet: TemplateChild<crate::QrBottomSheet>,
+        #[template_child]
+        pub exposure_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub saturation_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub contrast_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub sharpness_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub zoom_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub reset_image_controls: TemplateChild<gtk::Button>,
     }
 
     #[glib::object_subclass]
@@ -179,8 +195,12 @@ mod imp {
             self.viewfinder.connect_state_notify(glib::clone!(
                 #[weak]
                 obj,
-                move |_| {
+                move |viewfinder| {
                     obj.update_state();
+                    if matches!(viewfinder.state(), aperture::ViewfinderState::Ready) {
+                        obj.queue_image_adjustments();
+                        viewfinder.set_zoom(obj.imp().zoom_scale.value());
+                    }
                 }
             ));
 
@@ -191,6 +211,7 @@ mod imp {
                     match std::str::from_utf8(&code) {
                         Ok(code) => {
                             log::debug!("Detected QR code: {code}");
+                            obj.imp().sheet_stack.set_visible_child_name("qr");
                             obj.imp().bottom_sheet.set_open(true);
                             obj.imp().qr_bottom_sheet.set_contents(code);
                         }
@@ -250,6 +271,29 @@ mod imp {
                 move |_: &CameraControls| {
                     obj.camera_switched();
                 }
+            ));
+
+            for scale in [
+                &*self.exposure_scale,
+                &*self.saturation_scale,
+                &*self.contrast_scale,
+                &*self.sharpness_scale,
+            ] {
+                scale.connect_value_changed(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |_| obj.queue_image_adjustments()
+                ));
+            }
+            self.zoom_scale.connect_value_changed(glib::clone!(
+                #[weak]
+                obj,
+                move |scale| obj.imp().viewfinder.set_zoom(scale.value())
+            ));
+            self.reset_image_controls.connect_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.reset_image_controls()
             ));
 
             self.settings()
@@ -458,6 +502,7 @@ impl Camera {
         if let Some(ref camera) = camera {
             let id = id_from_pw(camera);
             imp.settings().set_string("last-camera-id", &id).unwrap();
+            self.set_image_control_defaults(camera);
         }
 
         if imp.viewfinder.is_recording() {
@@ -558,6 +603,77 @@ impl Camera {
 
         imp.guidelines
             .set_draw_guidelines(!imp.guidelines.draw_guidelines());
+    }
+
+    pub fn show_image_controls(&self) {
+        let imp = self.imp();
+        imp.sheet_stack.set_visible_child_name("image-controls");
+        imp.bottom_sheet.set_open(true);
+    }
+
+    fn queue_image_adjustments(&self) {
+        let imp = self.imp();
+        if let Some(handler) = imp.adjustment_handler.take() {
+            handler.remove();
+        }
+
+        let handler = glib::timeout_add_local_once(
+            Duration::from_millis(120),
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    camera.imp().adjustment_handler.take();
+                    camera.apply_image_adjustments();
+                }
+            ),
+        );
+        imp.adjustment_handler.replace(Some(handler));
+    }
+
+    fn apply_image_adjustments(&self) {
+        let imp = self.imp();
+        imp.viewfinder.set_image_adjustments(
+            imp.exposure_scale.value(),
+            imp.saturation_scale.value(),
+            imp.contrast_scale.value(),
+            imp.sharpness_scale.value(),
+        );
+    }
+
+    fn reset_image_controls(&self) {
+        let imp = self.imp();
+        if let Some(camera) = imp.viewfinder.camera() {
+            self.set_image_control_defaults(&camera);
+            return;
+        }
+
+        imp.exposure_scale.set_value(0.0);
+        imp.saturation_scale.set_value(1.25);
+        imp.contrast_scale.set_value(1.05);
+        imp.sharpness_scale.set_value(1.0);
+        imp.zoom_scale.set_value(1.0);
+        self.queue_image_adjustments();
+    }
+
+    fn set_image_control_defaults(&self, camera: &aperture::Camera) {
+        let imp = self.imp();
+        let model = camera.display_name().to_ascii_lowercase();
+        let (contrast, saturation) = if model.contains("imx371") {
+            (1.10, 1.25)
+        } else if model.contains("imx376") {
+            (1.05, 1.15)
+        } else {
+            // IMX519, and a conservative fallback for other colour sensors.
+            (1.05, 1.25)
+        };
+
+        imp.exposure_scale.set_value(0.0);
+        imp.saturation_scale.set_value(saturation);
+        imp.contrast_scale.set_value(contrast);
+        imp.sharpness_scale.set_value(1.0);
+        imp.zoom_scale.set_value(1.0);
+        self.queue_image_adjustments();
     }
 
     pub fn is_recording_active(&self) -> bool {
