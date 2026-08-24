@@ -86,6 +86,53 @@ pub(crate) mod caps {
             .or(best_size_fallback)
     }
 
+    pub(crate) fn best_still_mode(caps: &gst::Caps) -> Option<Size> {
+        const MAX_WIDTH: i32 = 2048;
+        const MAX_HEIGHT: i32 = 1536;
+        const RATIO_WIDTH: i32 = 4;
+        const RATIO_HEIGHT: i32 = 3;
+
+        let mut best_4_3: Option<Size> = None;
+        let mut best_bounded: Option<Size> = None;
+        let mut fallback: Option<Size> = None;
+        for cap in caps.iter() {
+            let (Ok(width), Ok(height)) = (cap.get::<i32>("width"), cap.get::<i32>("height"))
+            else {
+                continue;
+            };
+            if width <= 0 || height <= 0 {
+                continue;
+            }
+
+            let candidate = Size { width, height };
+            if fallback
+                .as_ref()
+                .is_none_or(|current| width * height > current.width * current.height)
+            {
+                fallback = Some(Size { width, height });
+            }
+
+            if width > MAX_WIDTH || height > MAX_HEIGHT {
+                continue;
+            }
+            if best_bounded
+                .as_ref()
+                .is_none_or(|current| width * height > current.width * current.height)
+            {
+                best_bounded = Some(Size { width, height });
+            }
+            if width * RATIO_HEIGHT == height * RATIO_WIDTH
+                && best_4_3
+                    .as_ref()
+                    .is_none_or(|current| width * height > current.width * current.height)
+            {
+                best_4_3 = Some(candidate);
+            }
+        }
+
+        best_4_3.or(best_bounded).or(fallback)
+    }
+
     fn best_resolution_for_fps(caps: &gst::Caps, framerate: gst::Fraction) -> gst::Caps {
         let fixed_caps = crate::SUPPORTED_ENCODINGS
             .iter()
@@ -167,6 +214,36 @@ pub(crate) mod caps {
 
         best_caps.merge(caps);
         best_caps
+    }
+
+    #[test]
+    fn test_best_still_mode_prefers_bounded_4_3() {
+        gst::init().expect("Failed to initialize gst");
+
+        let caps = [
+            gst_video::VideoCapsBuilder::new()
+                .width(1920)
+                .height(1080)
+                .build(),
+            gst_video::VideoCapsBuilder::new()
+                .width(2048)
+                .height(1536)
+                .build(),
+            gst_video::VideoCapsBuilder::new()
+                .width(3840)
+                .height(2160)
+                .build(),
+        ]
+        .into_iter()
+        .collect();
+
+        assert_eq!(
+            best_still_mode(&caps),
+            Some(Size {
+                width: 2048,
+                height: 1536,
+            })
+        );
     }
 }
 

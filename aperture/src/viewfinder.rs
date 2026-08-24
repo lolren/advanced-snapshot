@@ -1215,6 +1215,9 @@ impl Viewfinder {
             let caps = camera.best_caps();
             capsfilter.set_property("caps", &caps);
         }
+        if let Some(caps) = camera.best_image_caps() {
+            imp.camerabin().set_property("image-capture-caps", &caps);
+        }
 
         let is_front_camera = !matches!(camera.location(), crate::CameraLocation::Back);
         imp.is_front_camera.set(is_front_camera);

@@ -159,4 +159,25 @@ impl Camera {
 
         highest_res_caps
     }
+
+    pub(crate) fn best_image_caps(&self) -> Option<gst::Caps> {
+        let caps = self.caps()?;
+        let size = utils::caps::best_still_mode(&caps)?;
+        let fixed = crate::SUPPORTED_ENCODINGS
+            .iter()
+            .map(|encoding| {
+                gst::Caps::builder(*encoding)
+                    .field("width", size.width)
+                    .field("height", size.height)
+                    .build()
+            })
+            .collect::<gst::Caps>();
+        let selected = caps.intersect_with_mode(&fixed, gst::CapsIntersectMode::First);
+        if selected.is_empty() {
+            None
+        } else {
+            log::debug!("Using image capture caps: {selected:#?}");
+            Some(selected)
+        }
+    }
 }
