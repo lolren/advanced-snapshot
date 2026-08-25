@@ -316,6 +316,17 @@ mod imp {
                 .build()
                 .expect("Missing gst-plugin-gtk4");
 
+            // This sink is only the live viewfinder.  Waiting for the sink
+            // clock can display an already-old frame after the compositor or
+            // software ISP has fallen behind; the preview queue above is
+            // explicitly configured to keep only the newest frame.  Disable
+            // clock synchronisation so the sink consumes that newest frame as
+            // soon as it arrives, while QoS lets upstream elements observe
+            // downstream pressure.  Capture branches are independent and
+            // retain their normal timing.
+            paintablesink.set_property("sync", false);
+            paintablesink.set_property("qos", true);
+
             let paintable = paintablesink.property::<gdk::Paintable>("paintable");
 
             let is_yuv_natively_supported = {

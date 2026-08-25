@@ -328,6 +328,21 @@ OnePlus 6T device buildroot for a fresh package. Physical acceptance still
 requires a matching package, launch, live-preview latency observation,
 saved-photo, video and rollback checks on the phone.
 
+## Asynchronous live-sink preview candidate
+
+- Date: 2026-08-26
+- Change: the live `gtk4paintablesink` is configured with `sync=false` and
+  `qos=true`; capture branches are unchanged
+
+The viewfinder already keeps one downstream-leaky buffer per branch. Disabling
+clock synchronisation prevents the display sink from waiting for a timestamp
+that is already late after software-ISP or compositor work, while QoS exposes
+downstream pressure to upstream GStreamer elements. This is deliberately a
+preview-latency candidate, not a claim about still-image quality or video
+encoding. The source passed `git diff --check`; it still requires a matching
+AArch64 package and visual frame-rate/lifecycle acceptance on the recovered
+OnePlus 6T before it becomes a runtime baseline.
+
 ## Clean native source-validation checkpoint
 
 - Date: 2026-08-25
