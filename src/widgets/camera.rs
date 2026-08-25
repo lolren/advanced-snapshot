@@ -306,6 +306,12 @@ mod imp {
             ));
 
             let zoom_gesture = gtk::GestureZoom::new();
+            // The full-size controls layout is a GtkOverlay sibling above the
+            // viewfinder. A gesture attached directly to the viewfinder never
+            // sees touch sequences whose picked target belongs to that overlay.
+            // Capture on their common Camera ancestor so a recognized
+            // two-finger sequence can claim both touches before child controls.
+            zoom_gesture.set_propagation_phase(gtk::PropagationPhase::Capture);
             zoom_gesture.connect_begin(glib::clone!(
                 #[weak]
                 obj,
@@ -330,7 +336,7 @@ mod imp {
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                 }
             ));
-            self.viewfinder.add_controller(zoom_gesture);
+            obj.add_controller(zoom_gesture);
 
             self.reset_image_controls.connect_clicked(glib::clone!(
                 #[weak]
