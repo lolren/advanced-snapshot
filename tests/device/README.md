@@ -18,9 +18,11 @@ requires IMX371 to return the fixed-focus unsupported status after 120 frames.
 No photograph or video is saved.
 
 PipeWire and WirePlumber are restarted per sensor so libcamera diagnostics can
-be isolated. Their prior active state and any `LIBCAMERA_LOG_*` user-service
-environment are restored on every exit. The test refuses to run while a camera
-application or another `gst-launch-1.0` process is active unless
+be isolated. If the desktop portal was active, it and its wlroots backend are
+stopped before each PipeWire cycle and restored afterward so neither can retain
+a dead camera connection. The prior service state and any `LIBCAMERA_LOG_*`
+user-service environment are restored on every exit. The test refuses to run
+while a camera application or another `gst-launch-1.0` process is active unless
 `--close-camera-apps` is explicitly supplied.
 
 The output directory must be absent or empty. A passing run creates

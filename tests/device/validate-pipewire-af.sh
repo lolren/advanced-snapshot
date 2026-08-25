@@ -95,6 +95,8 @@ scratch=$(mktemp -d "${TMPDIR:-/tmp}/oneplus6t-af.XXXXXX")
 
 pipewire_active=$(systemctl --user is-active pipewire.service 2>/dev/null || true)
 wireplumber_active=$(systemctl --user is-active wireplumber.service 2>/dev/null || true)
+portal_active=$(systemctl --user is-active xdg-desktop-portal.service 2>/dev/null || true)
+wlr_portal_active=$(systemctl --user is-active xdg-desktop-portal-wlr.service 2>/dev/null || true)
 [ "$pipewire_active" = active ] && [ "$wireplumber_active" = active ] || {
 	printf '%s\n' 'PipeWire and WirePlumber must both be active before the test' >&2
 	rmdir "$scratch"
@@ -125,6 +127,10 @@ restore_services() {
 	cleanup_started=true
 	trap - EXIT HUP INT TERM
 	stop_stream
+	if [ "$portal_active" = active ] || [ "$wlr_portal_active" = active ]; then
+		systemctl --user stop xdg-desktop-portal.service \
+			xdg-desktop-portal-wlr.service >/dev/null 2>&1 || true
+	fi
 	systemctl --user stop wireplumber.service pipewire.service pipewire.socket \
 		>/dev/null 2>&1 || true
 	systemctl --user unset-environment LIBCAMERA_LOG_FILE LIBCAMERA_LOG_LEVELS \
@@ -135,6 +141,14 @@ restore_services() {
 		"LIBCAMERA_LOG_LEVELS=$old_log_levels"
 	systemctl --user start pipewire.socket pipewire.service wireplumber.service \
 		>/dev/null 2>&1 || true
+	if [ "$portal_active" = active ] || [ "$wlr_portal_active" = active ]; then
+		systemctl --user reset-failed xdg-desktop-portal.service \
+			xdg-desktop-portal-wlr.service >/dev/null 2>&1 || true
+		[ "$wlr_portal_active" != active ] || systemctl --user start \
+			xdg-desktop-portal-wlr.service >/dev/null 2>&1 || true
+		[ "$portal_active" != active ] || systemctl --user start \
+			xdg-desktop-portal.service >/dev/null 2>&1 || true
+	fi
 	rm -f "$scratch/devices"
 	rmdir "$scratch" 2>/dev/null || true
 }
@@ -171,12 +185,24 @@ fi
 
 restart_camera_services() {
 	log_file=$1
+	if [ "$portal_active" = active ] || [ "$wlr_portal_active" = active ]; then
+		systemctl --user stop xdg-desktop-portal.service \
+			xdg-desktop-portal-wlr.service
+	fi
 	systemctl --user stop wireplumber.service pipewire.service pipewire.socket
 	: >"$log_file"
 	systemctl --user set-environment \
 		"LIBCAMERA_LOG_FILE=$log_file" \
 		'LIBCAMERA_LOG_LEVELS=*:ERROR,IPASoftAf:DEBUG'
 	systemctl --user start pipewire.socket pipewire.service wireplumber.service
+	if [ "$portal_active" = active ] || [ "$wlr_portal_active" = active ]; then
+		systemctl --user reset-failed xdg-desktop-portal.service \
+			xdg-desktop-portal-wlr.service >/dev/null 2>&1 || true
+		[ "$wlr_portal_active" != active ] || \
+			systemctl --user start xdg-desktop-portal-wlr.service
+		[ "$portal_active" != active ] || \
+			systemctl --user start xdg-desktop-portal.service
+	fi
 	sleep 3
 }
 

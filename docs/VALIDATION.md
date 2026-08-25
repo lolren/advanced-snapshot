@@ -205,3 +205,16 @@ guide for the guarded commands.
 The Waydroid container service remained continuously active from before this
 transaction, while the Android session remained stopped. No camera process,
 autofocus test environment or failed user service remained after cleanup.
+
+The acceptance run exposed that restarting PipeWire underneath an active
+desktop portal can leave the main portal failed, while leaving the wlroots
+backend connected causes a transient backend failure. The committed runner now
+stops and restores both portal units around each PipeWire cycle. A final
+hardware regression passed both rear correlated focus results, the fixed-focus
+front and 10-second rear stability windows. Its summary SHA-256 is
+`aa5d5dedf5834e90ac15bd121a3711b4a7c004df0b5f41a59f155e6013fb9260`;
+the bounded portal-journal SHA-256 is
+`9447840432b47360053b37dd960f988994808428223dcd2a25127773a595b201`.
+That journal contains only orderly stop/start events. Both portal units,
+PipeWire and WirePlumber ended active with zero failed user units and no stale
+test state.
