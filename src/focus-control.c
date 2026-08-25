@@ -21,6 +21,10 @@
 #define CROP_KEY "api.libcamera.scaler-crop"
 #define CROP_MAXIMUM_KEY "api.libcamera.scaler-crop-maximum"
 #define ORIENTATION_KEY "api.libcamera.stream-orientation"
+#define AF_STATE_KEY "api.libcamera.af-state"
+#define AF_TRIGGER_GENERATION_KEY "api.libcamera.af-trigger-generation"
+#define AF_STATE_TRIGGER_GENERATION_KEY \
+	"api.libcamera.af-state-trigger-generation"
 
 enum operation {
 	OPERATION_FOCUS,
@@ -32,6 +36,15 @@ enum stage {
 	STAGE_DISCOVER,
 	STAGE_ENUM_CONTROLS,
 	STAGE_APPLY_CONTROLS,
+	STAGE_WAIT_AUTOFOCUS,
+};
+
+enum autofocus_state {
+	AUTOFOCUS_STATE_UNKNOWN,
+	AUTOFOCUS_STATE_IDLE,
+	AUTOFOCUS_STATE_SCANNING,
+	AUTOFOCUS_STATE_FOCUSED,
+	AUTOFOCUS_STATE_FAILED,
 };
 
 struct app {
@@ -69,18 +82,74 @@ struct app {
 	unsigned int crop_width;
 	unsigned int crop_height;
 	unsigned int orientation;
+	enum autofocus_state autofocus_state;
+	uint64_t af_trigger_generation;
+	uint64_t af_state_trigger_generation;
+	uint64_t baseline_af_trigger_generation;
+	uint64_t expected_af_trigger_generation;
 	int sync_seq;
 	int result;
 	bool controls_requested;
 	bool crop_available;
+	bool af_state_available;
+	bool af_trigger_generation_available;
+	bool af_state_trigger_generation_available;
+	bool finished;
 };
 
 static void finish(struct app *app, int result, const char *message)
 {
+	if (app->finished)
+		return;
+	app->finished = true;
 	if (message)
 		fprintf(stderr, "advanced-snapshot-focus-control: %s\n", message);
 	app->result = result;
 	pw_main_loop_quit(app->loop);
+}
+
+static enum autofocus_state parse_autofocus_state(const char *state)
+{
+	if (!state)
+		return AUTOFOCUS_STATE_UNKNOWN;
+	if (spa_streq(state, "idle"))
+		return AUTOFOCUS_STATE_IDLE;
+	if (spa_streq(state, "scanning"))
+		return AUTOFOCUS_STATE_SCANNING;
+	if (spa_streq(state, "focused"))
+		return AUTOFOCUS_STATE_FOCUSED;
+	if (spa_streq(state, "failed"))
+		return AUTOFOCUS_STATE_FAILED;
+	return AUTOFOCUS_STATE_UNKNOWN;
+}
+
+static void evaluate_autofocus_result(struct app *app)
+{
+	if (app->stage != STAGE_WAIT_AUTOFOCUS || app->finished)
+		return;
+
+	if (app->expected_af_trigger_generation == 0 &&
+	    app->af_trigger_generation_available &&
+	    app->af_trigger_generation > app->baseline_af_trigger_generation)
+		app->expected_af_trigger_generation = app->af_trigger_generation;
+
+	if (app->expected_af_trigger_generation == 0 ||
+	    !app->af_state_trigger_generation_available ||
+	    app->af_state_trigger_generation !=
+		app->expected_af_trigger_generation)
+		return;
+
+	if (app->autofocus_state == AUTOFOCUS_STATE_SCANNING)
+		return;
+
+	if (app->autofocus_state == AUTOFOCUS_STATE_FOCUSED ||
+	    app->autofocus_state == AUTOFOCUS_STATE_FAILED) {
+		puts(app->autofocus_state == AUTOFOCUS_STATE_FOCUSED
+			     ? "focused"
+			     : "failed");
+		fflush(stdout);
+		finish(app, 0, NULL);
+	}
 }
 
 static bool parse_uint64(const char *text, uint64_t *value)
@@ -315,9 +384,37 @@ static void node_info(void *data, const struct pw_node_info *info)
 			if (parse_uint64(orientation, &parsed) && parsed >= 1 && parsed <= 8)
 				app->orientation = (unsigned int)parsed;
 		}
+
+		const char *af_state = spa_dict_lookup(info->props, AF_STATE_KEY);
+		if (af_state) {
+			app->autofocus_state = parse_autofocus_state(af_state);
+			app->af_state_available = true;
+		}
+
+		const char *af_trigger_generation =
+			spa_dict_lookup(info->props, AF_TRIGGER_GENERATION_KEY);
+		if (af_trigger_generation) {
+			uint64_t parsed;
+			if (parse_uint64(af_trigger_generation, &parsed)) {
+				app->af_trigger_generation = parsed;
+				app->af_trigger_generation_available = true;
+			}
+		}
+
+		const char *af_state_trigger_generation =
+			spa_dict_lookup(info->props,
+					AF_STATE_TRIGGER_GENERATION_KEY);
+		if (af_state_trigger_generation) {
+			uint64_t parsed;
+			if (parse_uint64(af_state_trigger_generation, &parsed)) {
+				app->af_state_trigger_generation = parsed;
+				app->af_state_trigger_generation_available = true;
+			}
+		}
 	}
 
 	request_controls(app);
+	evaluate_autofocus_result(app);
 }
 
 static const struct pw_node_events node_events = {
@@ -377,6 +474,12 @@ static void core_done(void *data, uint32_t id, int seq)
 			finish(app, 3, "camera does not support tap-to-focus");
 			return;
 		}
+		if (app->operation == OPERATION_FOCUS &&
+		    !app->af_state_available) {
+			finish(app, 3,
+			       "camera stack does not expose autofocus results");
+			return;
+		}
 		if (app->operation == OPERATION_ADJUST &&
 		    (app->exposure_value_id == 0 || app->saturation_id == 0 ||
 		     app->contrast_id == 0 || app->sharpness_id == 0)) {
@@ -384,12 +487,25 @@ static void core_done(void *data, uint32_t id, int seq)
 			return;
 		}
 
+		if (app->operation == OPERATION_FOCUS)
+			app->baseline_af_trigger_generation =
+				app->af_trigger_generation_available
+					? app->af_trigger_generation
+					: 0;
+
 		if (apply_controls(app) < 0) {
 			finish(app, 4, "camera rejected controls");
 			return;
 		}
 		app->stage = STAGE_APPLY_CONTROLS;
 		app->sync_seq = pw_core_sync(app->core, PW_ID_CORE, app->sync_seq);
+		return;
+	}
+
+	if (app->stage == STAGE_APPLY_CONTROLS &&
+	    app->operation == OPERATION_FOCUS) {
+		app->stage = STAGE_WAIT_AUTOFOCUS;
+		evaluate_autofocus_result(app);
 		return;
 	}
 
@@ -416,6 +532,14 @@ static void timeout(void *data, uint64_t expirations)
 {
 	struct app *app = data;
 	(void)expirations;
+	if (app->operation == OPERATION_FOCUS &&
+	    app->stage == STAGE_WAIT_AUTOFOCUS) {
+		finish(app, 4,
+		       app->expected_af_trigger_generation == 0
+			       ? "timed out waiting for autofocus trigger acknowledgement"
+			       : "timed out waiting for autofocus result");
+		return;
+	}
 	finish(app, 4, "timed out waiting for PipeWire");
 }
 
@@ -492,7 +616,9 @@ int main(int argc, char **argv)
 	app.timer = pw_loop_add_timer(pw_main_loop_get_loop(app.loop), timeout, &app);
 	if (!app.timer)
 		goto cleanup;
-	struct timespec timeout_value = { .tv_sec = 3 };
+	struct timespec timeout_value = {
+		.tv_sec = app.operation == OPERATION_FOCUS ? 12 : 3,
+	};
 	struct timespec interval = { 0 };
 	pw_loop_update_timer(pw_main_loop_get_loop(app.loop), app.timer,
 			     &timeout_value, &interval, false);

@@ -33,6 +33,33 @@ enum StateChangeState {
     NotDone,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FocusIndicatorState {
+    Scanning,
+    Focused,
+    Failed,
+}
+
+impl Default for FocusIndicatorState {
+    fn default() -> Self {
+        Self::Scanning
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FocusResult {
+    Focused,
+    Failed,
+}
+
+fn parse_focus_result(output: &str) -> Option<FocusResult> {
+    match output.trim() {
+        "focused" => Some(FocusResult::Focused),
+        "failed" => Some(FocusResult::Failed),
+        _ => None,
+    }
+}
+
 mod imp {
     use std::cell::Cell;
     use std::cell::OnceCell;
@@ -78,7 +105,9 @@ mod imp {
         pub focus_indicator_handler: RefCell<Option<glib::SourceId>>,
         pub focus_reset_handler: RefCell<Option<glib::SourceId>>,
         pub focus_point: Cell<Option<(f64, f64)>>,
+        pub(super) focus_indicator_state: Cell<FocusIndicatorState>,
         pub focus_generation: Cell<u64>,
+        pub focus_process: RefCell<Option<gio::Subprocess>>,
 
         pub picture: gtk::Picture,
         pub offload: gtk::GraphicsOffload,
@@ -106,7 +135,12 @@ mod imp {
             if let Some(handler) = self.focus_reset_handler.take() {
                 handler.remove();
             }
+            if let Some(process) = self.focus_process.take() {
+                process.force_exit();
+            }
             self.focus_point.set(None);
+            self.focus_indicator_state
+                .set(FocusIndicatorState::Scanning);
             self.focus_overlay.set_visible(false);
         }
 
@@ -654,7 +688,9 @@ impl Viewfinder {
         let serial_arg = serial.to_string();
         let x_arg = format!("{focus_x:.8}");
         let y_arg = format!("{focus_y:.8}");
-        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let launcher = gio::SubprocessLauncher::new(
+            gio::SubprocessFlags::STDOUT_PIPE | gio::SubprocessFlags::STDERR_PIPE,
+        );
         let process = match launcher.spawn(&[
             OsStr::new(FOCUS_HELPER),
             OsStr::new("focus"),
@@ -666,18 +702,58 @@ impl Viewfinder {
             Ok(process) => process,
             Err(err) => {
                 log::warn!("Could not start tap-to-focus helper: {err}");
+                self.complete_focus_indicator(generation, serial, FocusIndicatorState::Failed);
                 return;
             }
         };
+        imp.focus_process.replace(Some(process.clone()));
 
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = viewfinder)]
             self,
             async move {
-                match process.wait_check_future().await {
-                    Ok(()) => viewfinder.schedule_focus_reset(generation, serial),
-                    Err(err) => log::debug!("Tap-to-focus was not applied: {err}"),
+                let result = match process.communicate_utf8_future(None).await {
+                    Ok((stdout, _stderr)) if process.has_exited() && process.exit_status() == 0 => {
+                        let parsed = stdout
+                            .as_ref()
+                            .and_then(|output| parse_focus_result(output.as_str()));
+                        if parsed.is_none() {
+                            log::warn!(
+                                "Tap-to-focus helper returned an unknown result: {}",
+                                stdout.as_deref().unwrap_or_default().trim()
+                            );
+                        }
+                        parsed
+                    }
+                    Ok((_, stderr)) => {
+                        log::debug!(
+                            "Tap-to-focus was not applied (status {}): {}",
+                            if process.has_exited() {
+                                process.exit_status()
+                            } else {
+                                -1
+                            },
+                            stderr.as_deref().unwrap_or_default().trim()
+                        );
+                        None
+                    }
+                    Err(err) => {
+                        log::debug!("Could not read tap-to-focus result: {err}");
+                        None
+                    }
+                };
+
+                let imp = viewfinder.imp();
+                if imp.focus_generation.get() == generation {
+                    imp.focus_process.take();
                 }
+
+                let indicator_state = match result {
+                    Some(FocusResult::Focused) => FocusIndicatorState::Focused,
+                    Some(FocusResult::Failed) | None => FocusIndicatorState::Failed,
+                };
+                viewfinder.complete_focus_indicator(generation, serial, indicator_state);
+                viewfinder.schedule_focus_reset(generation, serial);
             }
         ));
     }
@@ -721,10 +797,26 @@ impl Viewfinder {
         }
 
         imp.focus_point.set(Some(point));
+        imp.focus_indicator_state.set(FocusIndicatorState::Scanning);
         imp.focus_overlay.set_visible(true);
         imp.focus_overlay.queue_draw();
+    }
+
+    fn complete_focus_indicator(&self, generation: u64, serial: u64, state: FocusIndicatorState) {
+        let imp = self.imp();
+        if imp.focus_generation.get() != generation
+            || self.camera().and_then(|camera| camera.target_object()) != Some(serial)
+        {
+            return;
+        }
+
+        imp.focus_indicator_state.set(state);
+        imp.focus_overlay.queue_draw();
+        if let Some(handler) = imp.focus_indicator_handler.take() {
+            handler.remove();
+        }
         let indicator_handler = glib::timeout_add_local_once(
-            Duration::from_millis(2400),
+            Duration::from_millis(1600),
             glib::clone!(
                 #[weak(rename_to = viewfinder)]
                 self,
@@ -863,7 +955,12 @@ impl Viewfinder {
         context.rectangle(left, top, size, size);
         let _ = context.stroke();
 
-        context.set_source_rgba(1.0, 0.84, 0.16, 1.0);
+        let (red, green, blue) = match self.imp().focus_indicator_state.get() {
+            FocusIndicatorState::Scanning => (1.0, 0.84, 0.16),
+            FocusIndicatorState::Focused => (0.22, 0.88, 0.38),
+            FocusIndicatorState::Failed => (0.96, 0.22, 0.20),
+        };
+        context.set_source_rgba(red, green, blue, 1.0);
         context.set_line_width(2.5);
         context.rectangle(left, top, size, size);
         context.move_to(center_x - 5.0, center_y);
@@ -1585,4 +1682,22 @@ fn create_qrcode_bin() -> Result<gst::Element, glib::BoolError> {
     bin.add_pad(&ghost_pad).unwrap();
 
     Ok(bin.upcast())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FocusResult, parse_focus_result};
+
+    #[test]
+    fn parses_truthful_focus_results() {
+        assert_eq!(parse_focus_result("focused\n"), Some(FocusResult::Focused));
+        assert_eq!(parse_focus_result("failed\n"), Some(FocusResult::Failed));
+    }
+
+    #[test]
+    fn rejects_missing_or_ambiguous_focus_results() {
+        assert_eq!(parse_focus_result(""), None);
+        assert_eq!(parse_focus_result("scanning"), None);
+        assert_eq!(parse_focus_result("focused\nfailed"), None);
+    }
 }

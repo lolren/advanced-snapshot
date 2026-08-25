@@ -22,10 +22,25 @@ inverse libcamera orientation, then converted into a sensor-coordinate
 and submits mode, metering, window and trigger atomically.
 
 The current helper is intentionally a separate C process because Snapshot 50.0
-does not expose generic PipeWire camera controls through Aperture. Long term,
-the preferred design is a typed Aperture control/status API backed by PipeWire
-properties and request metadata. That will allow the reticle to represent
-Scanning, Focused and Failed rather than only helper acceptance.
+does not expose generic PipeWire camera controls through Aperture. The patched
+PipeWire libcamera SPA publishes three namespaced, read-only node properties:
+
+- `api.libcamera.af-trigger-generation` increments when an `AfTriggerStart`
+  control is accepted;
+- `api.libcamera.af-state-trigger-generation` identifies which trigger owns
+  the reported request metadata; and
+- `api.libcamera.af-state` carries `idle`, `scanning`, `focused` or `failed`.
+
+The helper snapshots the generation before submitting a tap and exits only
+after a terminal state for the newly accepted generation. Advanced Snapshot
+keeps the reticle amber while waiting, changes it to green only for `focused`,
+and uses red for `failed` or an infrastructure error. A new tap terminates the
+previous helper and generation checks suppress every stale callback. The
+fixed-focus front camera publishes no AF state and receives no focus gesture.
+
+Long term, the preferred design is a typed Aperture control/status API backed
+directly by PipeWire properties and request metadata. The helper keeps this
+first implementation reviewable and independently rollback-safe.
 
 Device tuning, algorithms and kernel changes do not belong in this repository.
 They are versioned in `oneplus6t-pmos-fixes`; VibeMarketOS will compose signed

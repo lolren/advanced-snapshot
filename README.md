@@ -19,12 +19,12 @@ postmarketOS into an unmaintainable permanent fork.
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
-| Focus reticle | Gives immediate visible tap feedback and safely clears stale callbacks | Implemented |
+| Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Digital zoom | Provides 1x–4x Camerabin zoom | Implemented |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
-| Focus-result state | Changes the reticle only when libcamera reports scanning/focused/failed | Planned; requires a truthful metadata bridge |
+| Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented; lower-stack package validation pending |
 | HDR and calibrated colour | Multi-frame merge, tone mapping, CCM and lens shading | Not implemented and never shown as available |
 
 “Android-class” is a feature-by-feature target, not a marketing claim. A
@@ -41,9 +41,12 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - for libcamera phones, `pipewire-spa-libcamera` plus a camera stack that
   advertises the controls used by the interface.
 
-The tested OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
-libcamera SPA r6 and postmarketOS edge. Generic webcams still use the inherited
-Snapshot paths; phone-specific controls degrade safely when absent.
+The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
+libcamera SPA r6 and postmarketOS edge. The truthful focus-result path requires
+the next SPA package revision documented in `oneplus6t-pmos-fixes`; until that
+coherent update is installed, the helper rejects result-driven focus instead
+of inventing success. Generic webcams still use the inherited Snapshot paths;
+phone-specific controls degrade safely when absent.
 
 ## Build and test
 
@@ -83,11 +86,12 @@ patch or activate an untested dependency update on the phone. See
 
 ## Project status
 
-The independently named baseline is under active development. The already
-installed `snapshot-50.0-r3` remains the phone's known-good UI until the new
-application builds, packages and passes native photo/video acceptance. The
-next work is truthful focus-result metadata, the mobile control surface,
-resolution/aspect/timer controls and robust video status.
+The independently named baseline is under active development and installed
+beside `snapshot-50.0-r3`. Truthful focus-result handling is implemented in
+source and is being packaged with its matching PipeWire transport. Native
+visual photo/video acceptance remains required before Advanced Snapshot can
+replace Snapshot as the known-good UI. The next application work is the mobile
+control surface, resolution/aspect/timer controls and robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
