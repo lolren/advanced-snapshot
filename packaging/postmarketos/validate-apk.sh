@@ -8,6 +8,9 @@ fi
 
 advanced_apk=$1
 snapshot_apk=${2-}
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+key_dir=$script_dir/../keys
+apk_verify_tool=${APK_VERIFY_TOOL:-apk}
 
 for command_name in \
 	appstreamcli \
@@ -28,10 +31,23 @@ do
 	fi
 done
 
+if ! command -v "$apk_verify_tool" >/dev/null 2>&1; then
+	printf 'missing APK verification tool: %s\n' "$apk_verify_tool" >&2
+	printf 'set APK_VERIFY_TOOL to an apk or apk.static executable\n' >&2
+	exit 2
+fi
+
+if [ ! -f "$key_dir/pmos@local-6a8b0868.rsa.pub" ]; then
+	printf 'missing packaged public verification key\n' >&2
+	exit 2
+fi
+
 if [ ! -f "$advanced_apk" ]; then
 	printf 'APK does not exist: %s\n' "$advanced_apk" >&2
 	exit 2
 fi
+
+"$apk_verify_tool" --keys-dir "$key_dir" verify "$advanced_apk"
 
 work_dir=$(mktemp -d)
 trap 'rm -rf -- "$work_dir"' EXIT HUP INT TERM

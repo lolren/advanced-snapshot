@@ -64,6 +64,9 @@ DESTDIR="$PWD/stage" meson install -C build
 find stage -type f -o -type l
 ```
 
+On the OnePlus 6T reference stack, the bounded non-image autofocus acceptance
+test is documented in [tests/device](tests/device).
+
 Do not replace distro-owned GNOME Snapshot files. Advanced Snapshot uses a
 different binary, helper, D-Bus name, icon name, schema and resource namespace.
 The pinned postmarketOS APK recipe, artifact validator and installation policy
