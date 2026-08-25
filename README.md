@@ -19,6 +19,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
 | Software-ISP-friendly preview | Selects a supported 720p-class live mode when available, while keeping still capture at the higher photo mode | Implemented |
+| Latest-frame preview scheduling | Uses a one-buffer downstream-leaky queue so a slow compositor or software ISP drops old frames instead of showing a delayed viewfinder | Implemented |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
@@ -119,8 +120,9 @@ coalescing camera writes into a bounded, latest-value-wins 33 ms scheduler and
 flushes the exact final value on gesture end, cancellation and capture. An
 automated device trace now records intermediate 1.0x, 1.5x, 1.9x and 2.7x
 states before the exact 3.0x endpoint. Physical r4 visual acceptance, saved
-photos and video remain separate gates. The next application work is
-resolution/aspect selection and more robust video status.
+photos, preview latency and video remain separate gates. The next application
+work is on-phone preview-latency acceptance, followed by resolution/aspect
+selection and more robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.

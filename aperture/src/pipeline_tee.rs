@@ -63,10 +63,28 @@ impl PipelineTee {
         Self::default()
     }
 
+    /// Create a branch queue that always favors the newest preview frame.
+    ///
+    /// The preview sink can temporarily fall behind the camera source while
+    /// converting frames or waiting for the compositor.  The default queue
+    /// settings retain up to a second of video, which makes the viewfinder
+    /// visibly lag behind the scene.  A one-buffer downstream-leaky queue
+    /// keeps latency bounded by roughly one frame and lets slow consumers
+    /// catch up instead of displaying stale images.
+    fn live_preview_queue() -> gst::Element {
+        gst::ElementFactory::make("queue")
+            .property("max-size-buffers", 1u32)
+            .property("max-size-bytes", 0u32)
+            .property("max-size-time", 0u64)
+            .property_from_str("leaky", "downstream")
+            .build()
+            .unwrap()
+    }
+
     pub fn add_branch(&self, branch: &gst::Element) {
         let imp = self.imp();
 
-        let queue = gst::ElementFactory::make("queue").build().unwrap();
+        let queue = Self::live_preview_queue();
 
         imp.hashmap
             .lock()
