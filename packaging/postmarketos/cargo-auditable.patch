@@ -1,0 +1,10 @@
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -35,0 +36 @@
++cargo_auditable = find_program('cargo-auditable', required: true)
+diff --git a/src/meson.build b/src/meson.build
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -54,0 +55 @@
++    'auditable',

@@ -66,7 +66,8 @@ find stage -type f -o -type l
 
 Do not replace distro-owned GNOME Snapshot files. Advanced Snapshot uses a
 different binary, helper, D-Bus name, icon name, schema and resource namespace.
-The postmarketOS APK recipe and tested transactional installer are tracked in
+The pinned postmarketOS APK recipe, artifact validator and installation policy
+are tracked in [packaging/postmarketos](packaging/postmarketos) and
 [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Upstream maintenance
