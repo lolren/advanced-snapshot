@@ -21,15 +21,22 @@ camera stack” must always agree.
 | Manual shutter/ISO | Hidden/unavailable | Advertised controls with valid units and metadata | Not implemented |
 | Flash | Hidden until real hardware policy exists | Torch/flash controls plus timing and thermal safety | Not implemented |
 
-The installed OnePlus 6T r24/r7 stack and Advanced Snapshot r1 pass the
-non-image lower-layer, package-launch and generation-correlated autofocus
-checks. The application deliberately rejects focus-result mode on an older
-transport rather than treating an accepted request as optical success. Visual
-reticle, saved-photo and video acceptance remain separate UI tests.
+The installed OnePlus 6T r24/r7 stack and Advanced Snapshot r4 pass the
+non-image lower-layer, package-launch, generation-correlated autofocus and live
+pinch-zoom checks. The application deliberately rejects focus-result mode on
+an older transport rather than treating an accepted request as optical
+success. Visual reticle, saved-photo and video acceptance remain separate UI
+tests.
 
-The r2 source adds synchronized pinch zoom. Four pure application tests cover
-gesture scaling, lower/upper clamping, invalid gesture values and the displayed
-value format; the complete source passed a clean AArch64 release build and all
-six Aperture tests. That proves build and state logic only. Touch arbitration,
-visible chip placement, preview/still framing and capture quality still require
-acceptance on the reference phone before r2 becomes the installed generation.
+Four pure application tests cover gesture scaling, lower/upper clamping,
+invalid gesture values and the displayed value format; the complete r4 source
+passed a clean AArch64 release build and all six Aperture tests. Physical r2
+testing exposed a touch-arbitration defect: the full-size controls overlay was
+picked above the viewfinder, so a gesture controller on the viewfinder never
+received those sequences. r3 attaches the gesture to their common Camera
+ancestor in GTK capture phase. Physical r3 testing then showed sparse crop
+updates during a sustained pinch. r4 applies UI state immediately, schedules
+at most one latest camera update every 33 ms and flushes the exact endpoint.
+The bounded device trace advanced through 1.0x, 1.5x, 1.9x and 2.7x before its
+3.0x endpoint. This is automated device acceptance; physical visual acceptance
+of r4 remains open.

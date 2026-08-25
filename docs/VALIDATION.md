@@ -251,3 +251,33 @@ throwaway signing key. It is deliberately not an install candidate. The next
 gate is a committed Git source pin, production-key signature and complete APK
 manifest validation, followed by touch/UI, all-sensor, photo and video checks
 on the reference OnePlus 6T.
+
+## OnePlus 6T r4 live-pinch checkpoint
+
+- Date: 2026-08-25
+- Live scheduler source commit: `fe2e6b3`
+- Pinned packaging commit: `ca705eb`
+- Main APK SHA-256:
+  `a94494a28128481674e3665d14ef820b145f32431315369d05410cd15b92f6e9`
+- Language APK SHA-256:
+  `f24eec67dfe9099c294c6a099d65fbcc9e906c6b422d111b3e7dc091c055a75b`
+- Installed pair: `advanced-snapshot-0.1.0-r4` and
+  `pipewire-spa-libcamera-1.6.8-r7`
+
+r3 proved that capture-phase arbitration delivered two-finger gestures, but a
+physical sustained-pinch test exposed sparse preview-crop changes. r4 separates
+the immediate UI value from the comparatively expensive camera property write.
+It retains only the latest pending value, dispatches no faster than once every
+33 ms, and flushes the exact endpoint when a gesture ends or is cancelled and
+before capture. This keeps work bounded instead of queuing stale intermediate
+zooms.
+
+The signed r4 packages passed the guarded generation simulation and install.
+An automated compositor trace over the live phone preview recorded visible
+values of approximately 1.0x, 1.5x, 1.9x and 2.7x during one five-second pinch,
+then the exact 3.0x endpoint. The five private trace-frame SHA-256 values are
+stored only in the device evidence directory; no scene image is committed.
+This proves progressive application state and camera-crop dispatch on hardware.
+A user-observed physical smoothness check remains required because compositor
+screenshots temporarily pause rendering and cannot establish perceived frame
+cadence.

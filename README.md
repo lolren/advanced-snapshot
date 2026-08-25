@@ -22,7 +22,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
-| Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Implemented in r2 source |
+| Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
 | HDR and calibrated colour | Multi-frame merge, tone mapping, CCM and lens shading | Not implemented and never shown as available |
@@ -60,9 +60,10 @@ can implement and report them truthfully.
   advertises the controls used by the interface.
 
 The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
-libcamera SPA r7, Advanced Snapshot r1 and postmarketOS edge. The signed r7/r1
-pair passed a coherent offline installation, all-sensor stream test, correlated
-rear-focus result test, fixed-focus front fallback and packaged D-Bus launch.
+libcamera SPA r7, Advanced Snapshot r4 and postmarketOS edge. The signed r7/r4
+generation passed a coherent offline installation, all-sensor stream test,
+correlated rear-focus result test, fixed-focus front fallback, packaged D-Bus
+launch and a compositor-level live-pinch trace from 1.0x to 3.0x.
 Generic webcams still use the inherited Snapshot paths; phone-specific
 controls degrade safely when absent.
 
@@ -104,15 +105,21 @@ patch or activate an untested dependency update on the phone. See
 
 ## Project status
 
-The independently named r1 build is installed beside `snapshot-50.0-r3`.
-Truthful focus-result handling and its matching PipeWire transport have signed
-AArch64 packages, automated source/package checks and coherent phone runtime
-acceptance. Native visual photo/video acceptance remains required before
-Advanced Snapshot can replace Snapshot as the known-good UI. The r2 source
-adds the synchronized mobile pinch control and has passed a clean AArch64
-package build; signed-package and phone UI acceptance remain release gates.
-The next application work after that gate is resolution/aspect selection and
-more robust video status.
+The independently named r4 build is installed beside `snapshot-50.0-r3`.
+Truthful focus-result handling, its matching PipeWire transport and synchronized
+pinch zoom have signed AArch64 packages, automated source/package checks and
+coherent phone runtime acceptance. The original r2 gesture was correctly
+rejected after physical testing showed that the full-screen controls overlay
+kept touch sequences from a controller attached only to the viewfinder. In r3,
+the gesture runs in capture phase on the controls/viewfinder common ancestor;
+that fixed gesture recognition, but physical testing found that the camera crop
+did not track a sustained pinch smoothly. r4 keeps the label immediate while
+coalescing camera writes into a bounded, latest-value-wins 33 ms scheduler and
+flushes the exact final value on gesture end, cancellation and capture. An
+automated device trace now records intermediate 1.0x, 1.5x, 1.9x and 2.7x
+states before the exact 3.0x endpoint. Physical r4 visual acceptance, saved
+photos and video remain separate gates. The next application work is
+resolution/aspect selection and more robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
