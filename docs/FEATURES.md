@@ -7,7 +7,7 @@ camera stack” must always agree.
 | Capability | Application | PipeWire/libcamera requirement | Acceptance |
 | --- | --- | --- | --- |
 | Photo capture | Inherited Snapshot flow with full-frame mode selection | A negotiated RGB/YUV still stream | Decodable saved image at selected caps |
-| Preview quality | Chooses a supported 720p-class live mode before falling back to the first available mode; still capture remains independently bounded at 2048x1536 | Preview caps containing a suitable 640x480–1280x720 mode | The negotiated preview is no taller than 720 pixels when the camera advertises one |
+| Preview quality | Chooses a supported 720p-class live mode before using a ratio-checked 1080p fallback; still capture remains independently bounded at 2048x1536 | Preview caps containing a suitable 640x480–1280x720 mode | The negotiated preview is no taller than 720 pixels when the camera advertises one |
 | Video capture | Inherited recording flow, timer and duration indicator | Working encoder/muxer and stable preview | Playable file, monotonic duration, clean stop |
 | Tap-to-focus | Preview gesture, oriented crop mapping and an amber/green/red result reticle | `AfMode`, `AfMetering`, `AfWindows`, `AfTrigger` plus generation-correlated `AfState` transport | Rear lens moves; green is shown only for `Focused`, red for `Failed`/transport error |
 | Continuous focus | Return to whole-frame monitoring after a tap | Stable continuous AF implementation | No lens sweep on Reset and no stable-scene hunting |

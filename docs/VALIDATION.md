@@ -293,6 +293,7 @@ This separation is intentional for phones using libcamera's software ISP:
 the viewfinder and GTK compositor process frames continuously, while a still
 capture can use a larger sensor mode only when the shutter is pressed. If a
 camera advertises no suitable 640x480–1280x720 preview mode, the selector
-falls back to the first advertised mode rather than failing camera startup.
+uses the previous ratio-checked mode up to 1920x1080 rather than failing camera
+startup or selecting an odd-sized mode just above the 720p cap.
 The unit test covers a camera advertising both 1920x1080 and 1280x720 and
 requires the latter for the live viewfinder.

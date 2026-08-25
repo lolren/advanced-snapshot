@@ -38,10 +38,16 @@ pub(crate) mod caps {
         // preview mode and gives the compositor more headroom for controls,
         // focus feedback and zoom updates.
         const MAX_HEIGHT: i32 = 720;
+        // Some sensors expose no mode at or below 720p. Keep the previous
+        // 1080p ceiling as a controlled fallback instead of selecting an
+        // arbitrary first mode or an odd-sized mode just above the cap.
+        const FALLBACK_MAX_HEIGHT: i32 = 1080;
         const OPTIMAL_RATIO: f32 = 16.0 / 9.0;
 
         let mut best_size_optimal_ratio: Option<Size> = None;
         let mut best_size_any_ratio: Option<Size> = None;
+        let mut fallback_size_optimal_ratio: Option<Size> = None;
+        let mut fallback_size_any_ratio: Option<Size> = None;
         let mut best_size_fallback: Option<Size> = None;
 
         for cap in caps.iter() {
@@ -84,10 +90,40 @@ pub(crate) mod caps {
                     best_size_any_ratio = Some(Size { width, height });
                 }
             }
+
+            if (MIN_WIDTH..=max_width).contains(&width)
+                && (MIN_HEIGHT..=FALLBACK_MAX_HEIGHT).contains(&height)
+            {
+                if width == (height as f32 * OPTIMAL_RATIO) as i32 {
+                    if let Some(Size {
+                        width: best_w,
+                        height: best_h,
+                    }) = fallback_size_optimal_ratio
+                    {
+                        if width >= best_w && height >= best_h {
+                            fallback_size_optimal_ratio = Some(Size { width, height });
+                        }
+                    } else {
+                        fallback_size_optimal_ratio = Some(Size { width, height });
+                    }
+                } else if let Some(Size {
+                    width: best_w,
+                    height: best_h,
+                }) = fallback_size_any_ratio
+                {
+                    if width >= best_w && height >= best_h {
+                        fallback_size_any_ratio = Some(Size { width, height });
+                    }
+                } else {
+                    fallback_size_any_ratio = Some(Size { width, height });
+                }
+            }
         }
 
         best_size_optimal_ratio
             .or(best_size_any_ratio)
+            .or(fallback_size_optimal_ratio)
+            .or(fallback_size_any_ratio)
             .or(best_size_fallback)
     }
 
