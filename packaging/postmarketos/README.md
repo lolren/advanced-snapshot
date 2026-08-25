@@ -23,9 +23,9 @@ Snapshot package when it is available locally:
 ```sh
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r3.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r4.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r3.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r4.apk
 ```
 
 The recipe runs all library and binary unit tests in the Cargo workspace,
