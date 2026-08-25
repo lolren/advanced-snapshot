@@ -14,6 +14,12 @@ use super::CameraControls;
 use crate::enums::ControlsLayout;
 use crate::{config, utils};
 
+// Camerabin implements digital zoom by updating a videocrop/videoscale chain.
+// Feeding that chain every raw touch event can build a visible backlog, so
+// pinch updates are coalesced to the latest value at roughly preview-frame
+// cadence. The exact final value is still applied when the gesture ends.
+const PINCH_ZOOM_UPDATE_INTERVAL: Duration = Duration::from_millis(33);
+
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
 
@@ -37,6 +43,9 @@ mod imp {
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
         pub pinch_zoom_start: Cell<f64>,
+        pub pinch_zoom_active: Cell<bool>,
+        pub pending_pinch_zoom: Cell<Option<f64>>,
+        pub pinch_zoom_handler: RefCell<Option<glib::source::SourceId>>,
 
         #[property(get, set = Self::set_capture_mode, explicit_notify, default)]
         capture_mode: Cell<crate::CaptureMode>,
@@ -293,10 +302,10 @@ mod imp {
                 obj,
                 move |scale| {
                     let zoom = scale.value();
-                    obj.imp().viewfinder.set_zoom(zoom);
                     obj.imp()
                         .zoom_reset_button
                         .set_label(&format_zoom_label(zoom));
+                    obj.request_zoom(zoom);
                 }
             ));
             self.zoom_reset_button.connect_clicked(glib::clone!(
@@ -316,7 +325,7 @@ mod imp {
                 #[weak]
                 obj,
                 move |gesture, _| {
-                    obj.imp().pinch_zoom_start.set(obj.imp().zoom_scale.value());
+                    obj.begin_pinch_zoom();
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                 }
             ));
@@ -335,6 +344,16 @@ mod imp {
                     imp.zoom_scale.set_value(zoom);
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                 }
+            ));
+            zoom_gesture.connect_end(glib::clone!(
+                #[weak]
+                obj,
+                move |_, _| obj.finish_pinch_zoom()
+            ));
+            zoom_gesture.connect_cancel(glib::clone!(
+                #[weak]
+                obj,
+                move |_, _| obj.finish_pinch_zoom()
             ));
             obj.add_controller(zoom_gesture);
 
@@ -490,6 +509,7 @@ impl Camera {
 
     pub async fn start_recording(&self) -> anyhow::Result<()> {
         let imp = self.imp();
+        self.flush_pending_zoom();
         let format = imp.viewfinder.video_format();
         let filename = utils::video_file_name(format);
         let path = utils::videos_dir()?.join(filename);
@@ -511,6 +531,7 @@ impl Camera {
 
     pub async fn take_picture(&self, format: crate::PictureFormat) -> anyhow::Result<()> {
         let imp = self.imp();
+        self.flush_pending_zoom();
         let window = self.root().and_downcast::<crate::Window>().unwrap();
 
         // We enable the shutter whenever picture-stored is emitted.
@@ -677,6 +698,63 @@ impl Camera {
             ),
         );
         imp.adjustment_handler.replace(Some(handler));
+    }
+
+    fn begin_pinch_zoom(&self) {
+        let imp = self.imp();
+        if let Some(handler) = imp.pinch_zoom_handler.take() {
+            handler.remove();
+        }
+        imp.pending_pinch_zoom.take();
+        imp.pinch_zoom_start.set(imp.zoom_scale.value());
+        imp.pinch_zoom_active.set(true);
+    }
+
+    fn request_zoom(&self, zoom: f64) {
+        let imp = self.imp();
+        if !imp.pinch_zoom_active.get() {
+            imp.viewfinder.set_zoom(zoom);
+            return;
+        }
+
+        // Replacing the pending value prevents stale intermediate crops from
+        // being replayed after the user's fingers have already moved on.
+        imp.pending_pinch_zoom.set(Some(zoom));
+        if imp.pinch_zoom_handler.borrow().is_some() {
+            return;
+        }
+
+        let handler = glib::timeout_add_local_once(
+            PINCH_ZOOM_UPDATE_INTERVAL,
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    let imp = camera.imp();
+                    imp.pinch_zoom_handler.take();
+                    if let Some(zoom) = imp.pending_pinch_zoom.take() {
+                        imp.viewfinder.set_zoom(zoom);
+                    }
+                }
+            ),
+        );
+        imp.pinch_zoom_handler.replace(Some(handler));
+    }
+
+    fn flush_pending_zoom(&self) {
+        let imp = self.imp();
+        if let Some(handler) = imp.pinch_zoom_handler.take() {
+            handler.remove();
+        }
+        imp.pending_pinch_zoom.take();
+        imp.viewfinder.set_zoom(imp.zoom_scale.value());
+    }
+
+    fn finish_pinch_zoom(&self) {
+        if !self.imp().pinch_zoom_active.replace(false) {
+            return;
+        }
+        self.flush_pending_zoom();
     }
 
     fn apply_image_adjustments(&self) {
