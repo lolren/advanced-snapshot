@@ -347,3 +347,27 @@ cargo test --workspace --all-targets
 This validates the application and library source on x86-64. It does not
 replace AArch64 packaging or the still-open phone-side preview-latency,
 photo, video and visual acceptance gates.
+
+## GTK CI-container test checkpoint
+
+- Date: 2026-08-25
+- Source commit: `d66f853`
+- Container: `ghcr.io/gtk-rs/gtk4-rs/gtk4:latest`, resolved as
+  `sha256:89b799ae74f933b3e3ecc50086743c4ef0c684fa7ab6f091de72ddc65df8fd5e`
+- Toolchain: Rust/Cargo 1.97.1
+- Installed development stack: GTK 4.22.4, libadwaita 1.9.3, Glycin 2.1.5
+  and GStreamer 1.28.6
+
+The complete locked workspace command passed in the container, using a
+temporary target directory outside the checkout:
+
+```text
+CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
+  cargo test --locked --all-targets --all-features --workspace
+4 Advanced Snapshot tests passed
+6 Aperture tests passed
+```
+
+This removes the host-only dependency limitation from the previous check. It
+still validates source behavior and compilation on x86-64, not the AArch64
+package or physical camera preview, photo, video and lifecycle behavior.
