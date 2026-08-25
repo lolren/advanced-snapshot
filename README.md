@@ -124,6 +124,13 @@ photos, preview latency and video remain separate gates. The next application
 work is on-phone preview-latency acceptance, followed by resolution/aspect
 selection and more robust video status.
 
+Commit `fed2784` adds a one-buffer, downstream-leaky queue to every preview
+branch so slow conversion or composition drops stale frames instead of
+displaying a delayed viewfinder. This source change is pushed and statically
+verified, but its new AArch64 package is not claimed as installed: host
+development libraries and a matching pmbootstrap device buildroot are still
+required before physical preview-latency acceptance.
+
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
 

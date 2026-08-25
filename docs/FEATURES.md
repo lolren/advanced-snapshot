@@ -40,4 +40,7 @@ updates during a sustained pinch. r4 applies UI state immediately, schedules
 at most one latest camera update every 33 ms and flushes the exact endpoint.
 The bounded device trace advanced through 1.0x, 1.5x, 1.9x and 2.7x before its
 3.0x endpoint. This is automated device acceptance; physical visual and
-preview-latency acceptance of r4 remains open.
+preview-latency acceptance of r4 remains open. Commit `fed2784` additionally
+keeps each preview branch at one downstream-leaky buffer; the source is pushed
+but the corresponding package still needs a matching AArch64 build and phone
+acceptance.

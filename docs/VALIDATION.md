@@ -311,3 +311,20 @@ bddcb910c716adb93c62afeaad067dbc641ae77b563dcb7862131eaee50daa9b
 
 The APKs are build artifacts, not yet installed after the phone's Waydroid
 overlay I/O stall; install them only as a matched package generation.
+
+## Latest-frame preview source checkpoint
+
+- Date: 2026-08-25
+- Source commit: `fed2784`
+- Change: every `PipelineTee` branch now uses a queue with one buffer,
+  unlimited byte/time limits and downstream leakage. A slow compositor or
+  software conversion stage therefore discards old viewfinder frames instead
+  of presenting a growing preview delay.
+
+The source diff and documentation checks pass, and the repository remains
+clean after the commit. No AArch64 package from this revision is claimed as
+installed: the host lacks the complete GTK/GObject/GStreamer development
+environment for the normal Cargo build, and the current pmbootstrap checkout
+does not provide a matching OnePlus 6T device buildroot for a fresh package.
+Physical acceptance still requires a matching package, launch, live-preview
+latency observation, saved-photo, video and rollback checks on the phone.
