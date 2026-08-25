@@ -15,6 +15,7 @@ apk_verify_tool=${APK_VERIFY_TOOL:-apk}
 
 for command_name in \
 	appstreamcli \
+	awk \
 	desktop-file-validate \
 	diff \
 	file \
@@ -31,6 +32,22 @@ do
 		exit 2
 	fi
 done
+
+expected_version=$(
+	awk -F '=' '
+		$1 == "pkgver" { pkgver=$2; pkgver_count++ }
+		$1 == "pkgrel" { pkgrel=$2; pkgrel_count++ }
+		END {
+			if (pkgver_count != 1 || pkgrel_count != 1 ||
+			    pkgver == "" || pkgrel !~ /^[0-9]+$/)
+				exit 1
+			printf "%s-r%s", pkgver, pkgrel
+		}
+	' "$script_dir/APKBUILD"
+) || {
+	printf 'could not derive the expected package version from APKBUILD\n' >&2
+	exit 2
+}
 
 if ! command -v "$apk_verify_tool" >/dev/null 2>&1; then
 	printf 'missing APK verification tool: %s\n' "$apk_verify_tool" >&2
@@ -75,7 +92,7 @@ diff -u "$work_dir/files.expected" "$work_dir/files.actual"
 tar -xf "$advanced_apk" -C "$root_dir" 2>/dev/null
 
 grep -qx 'pkgname = advanced-snapshot' "$root_dir/.PKGINFO"
-grep -qx 'pkgver = 0.1.0-r2' "$root_dir/.PKGINFO"
+grep -Fqx "pkgver = $expected_version" "$root_dir/.PKGINFO"
 file "$root_dir/usr/bin/advanced-snapshot" | grep -q 'ARM aarch64'
 file "$root_dir/usr/libexec/advanced-snapshot-focus-control" | grep -q 'ARM aarch64'
 readelf -h "$root_dir/usr/bin/advanced-snapshot" | grep -q 'Machine:.*AArch64'
@@ -153,10 +170,10 @@ if [ -n "$lang_apk" ]; then
 
 	tar -xf "$lang_apk" -C "$lang_root" 2>/dev/null
 	grep -qx 'pkgname = advanced-snapshot-lang' "$lang_root/.PKGINFO"
-	grep -qx 'pkgver = 0.1.0-r2' "$lang_root/.PKGINFO"
+	grep -Fqx "pkgver = $expected_version" "$lang_root/.PKGINFO"
 	grep -qx 'arch = noarch' "$lang_root/.PKGINFO"
 	grep -qx 'origin = advanced-snapshot' "$lang_root/.PKGINFO"
-	grep -qx 'install_if = advanced-snapshot=0.1.0-r2 lang' \
+	grep -Fqx "install_if = advanced-snapshot=$expected_version lang" \
 		"$lang_root/.PKGINFO"
 
 	comm -12 "$work_dir/files.actual" "$work_dir/lang-files" \
