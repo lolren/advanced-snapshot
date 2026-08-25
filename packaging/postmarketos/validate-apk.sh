@@ -1,13 +1,14 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-	printf 'usage: %s ADVANCED_SNAPSHOT_APK [SNAPSHOT_APK]\n' "$0" >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+	printf 'usage: %s ADVANCED_SNAPSHOT_APK [SNAPSHOT_APK [LANG_APK]]\n' "$0" >&2
 	exit 2
 fi
 
 advanced_apk=$1
 snapshot_apk=${2-}
+lang_apk=${3-}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 key_dir=$script_dir/../keys
 apk_verify_tool=${APK_VERIFY_TOOL:-apk}
@@ -123,6 +124,51 @@ if [ -n "$snapshot_apk" ]; then
 		cat "$work_dir/overlap" >&2
 		exit 1
 	fi
+fi
+
+if [ -n "$lang_apk" ]; then
+	if [ ! -f "$lang_apk" ]; then
+		printf 'language APK does not exist: %s\n' "$lang_apk" >&2
+		exit 2
+	fi
+
+	"$apk_verify_tool" --keys-dir "$key_dir" verify "$lang_apk"
+
+	lang_root=$work_dir/lang-root
+	mkdir -p "$lang_root"
+	tar -tf "$lang_apk" 2>/dev/null \
+		| grep -Ev '(^\.|/$)' \
+		| LC_ALL=C sort > "$work_dir/lang-files"
+	if [ ! -s "$work_dir/lang-files" ]; then
+		printf 'language APK has no translation payload\n' >&2
+		exit 1
+	fi
+	if grep -Ev '^usr/share/locale/[^/]+/LC_MESSAGES/advanced-snapshot\.mo$' \
+		"$work_dir/lang-files" > "$work_dir/lang-unexpected"
+	then
+		printf 'unexpected file in language APK:\n' >&2
+		cat "$work_dir/lang-unexpected" >&2
+		exit 1
+	fi
+
+	tar -xf "$lang_apk" -C "$lang_root" 2>/dev/null
+	grep -qx 'pkgname = advanced-snapshot-lang' "$lang_root/.PKGINFO"
+	grep -qx 'pkgver = 0.1.0-r2' "$lang_root/.PKGINFO"
+	grep -qx 'arch = noarch' "$lang_root/.PKGINFO"
+	grep -qx 'origin = advanced-snapshot' "$lang_root/.PKGINFO"
+	grep -qx 'install_if = advanced-snapshot=0.1.0-r2 lang' \
+		"$lang_root/.PKGINFO"
+
+	comm -12 "$work_dir/files.actual" "$work_dir/lang-files" \
+		> "$work_dir/lang-overlap"
+	if [ -s "$work_dir/lang-overlap" ]; then
+		printf 'file ownership overlap with language APK:\n' >&2
+		cat "$work_dir/lang-overlap" >&2
+		exit 1
+	fi
+
+	sha256sum "$lang_apk"
+	printf 'Advanced Snapshot language APK validation passed\n'
 fi
 
 sha256sum "$advanced_apk"

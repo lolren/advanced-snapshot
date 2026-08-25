@@ -24,16 +24,18 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   ./packaging/postmarketos/validate-apk.sh \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r2.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r2.apk
 ```
 
 The recipe runs all library and binary unit tests in the Cargo workspace,
 including the Aperture focus-result parser. Cross-compiled Rust doctests are
 excluded because `crossdirect` cannot resolve their target crates. The
-validator checks the architecture, complete file manifest, desktop entry,
-D-Bus service, AppStream metadata, GSettings schema, resource namespace, stale
-upstream identifiers, package signature and file ownership overlap. A host
-`apk` command can be used without setting `APK_VERIFY_TOOL`.
+validator checks both package signatures, architectures, complete file
+manifests, language split, desktop entry, D-Bus service, AppStream metadata,
+GSettings schema, resource namespace, stale upstream identifiers and file
+ownership overlap. A host `apk` command can be used without setting
+`APK_VERIFY_TOOL`.
 
 ## Updating the source pin
 
