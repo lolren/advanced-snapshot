@@ -297,3 +297,17 @@ uses the previous ratio-checked mode up to 1920x1080 rather than failing camera
 startup or selecting an odd-sized mode just above the 720p cap.
 The unit test covers a camera advertising both 1920x1080 and 1280x720 and
 requires the latter for the live viewfinder.
+
+The corrected source was cross-built for AArch64 on 2026-08-25 from commit
+`5efd982`. The isolated package build passed all four Advanced Snapshot tests
+and all six Aperture tests, then produced:
+
+```text
+advanced-snapshot-0.1.0_p20260825194238-r1.apk
+c2c6f195185528b51dcbb759f40daa46e7d3136cefba6d5b8fd76329f2aca6da
+advanced-snapshot-lang-0.1.0_p20260825194238-r1.apk
+bddcb910c716adb93c62afeaad067dbc641ae77b563dcb7862131eaee50daa9b
+```
+
+The APKs are build artifacts, not yet installed after the phone's Waydroid
+overlay I/O stall; install them only as a matched package generation.
