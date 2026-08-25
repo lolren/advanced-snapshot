@@ -24,7 +24,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Digital zoom | Provides 1x–4x Camerabin zoom | Implemented |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
-| Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented; lower-stack package validation pending |
+| Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
 | HDR and calibrated colour | Multi-frame merge, tone mapping, CCM and lens shading | Not implemented and never shown as available |
 
 “Android-class” is a feature-by-feature target, not a marketing claim. A
@@ -42,12 +42,11 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   advertises the controls used by the interface.
 
 The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
-libcamera SPA r6 and postmarketOS edge. The signed Advanced Snapshot r1 package
-and matching SPA r7 candidate build reproducibly, but remain a coherent device
-acceptance gate. Until the matching transport is installed, the helper rejects
-result-driven focus instead of inventing success. Generic webcams still use
-the inherited Snapshot paths; phone-specific controls degrade safely when
-absent.
+libcamera SPA r7, Advanced Snapshot r1 and postmarketOS edge. The signed r7/r1
+pair passed a coherent offline installation, all-sensor stream test, correlated
+rear-focus result test, fixed-focus front fallback and packaged D-Bus launch.
+Generic webcams still use the inherited Snapshot paths; phone-specific
+controls degrade safely when absent.
 
 ## Build and test
 
@@ -87,13 +86,13 @@ patch or activate an untested dependency update on the phone. See
 
 ## Project status
 
-The independently named baseline is under active development and installed
-beside `snapshot-50.0-r3`. Truthful focus-result handling and its matching
-PipeWire transport have signed AArch64 packages and automated source/package
-checks. Coherent phone acceptance and native visual photo/video acceptance
-remain required before Advanced Snapshot can replace Snapshot as the
-known-good UI. The next application work is the mobile control surface,
-resolution/aspect/timer controls and robust video status.
+The independently named r1 build is installed beside `snapshot-50.0-r3`.
+Truthful focus-result handling and its matching PipeWire transport have signed
+AArch64 packages, automated source/package checks and coherent phone runtime
+acceptance. Native visual photo/video acceptance remains required before
+Advanced Snapshot can replace Snapshot as the known-good UI. The next
+application work is the mobile control surface, resolution/aspect/timer
+controls and robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.

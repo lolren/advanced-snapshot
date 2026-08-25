@@ -21,8 +21,8 @@ camera stack” must always agree.
 | Manual shutter/ISO | Hidden/unavailable | Advertised controls with valid units and metadata | Not implemented |
 | Flash | Hidden until real hardware policy exists | Torch/flash controls plus timing and thermal safety | Not implemented |
 
-The installed OnePlus 6T r24/r6 stack passes the earlier lower-layer controls.
-The generation-correlated focus transport and UI are implemented in source and
-must be installed and accepted together as the next PipeWire/Application
-package revisions. The application deliberately rejects focus-result mode on
-an older transport rather than treating an accepted request as optical success.
+The installed OnePlus 6T r24/r7 stack and Advanced Snapshot r1 pass the
+non-image lower-layer, package-launch and generation-correlated autofocus
+checks. The application deliberately rejects focus-result mode on an older
+transport rather than treating an accepted request as optical success. Visual
+reticle, saved-photo and video acceptance remain separate UI tests.

@@ -47,9 +47,10 @@ The installer will run native camera smoke tests before marking the generation
 healthy. A failed launch, stream, focus or capture check leaves the prior app
 and camera package generation available for rollback.
 
-The release installer is still in development. Until side-by-side native photo
-and video acceptance passes on the reference phone, continue using the
-known-good `snapshot-50.0-r3` package.
+The release installer is still in development. The r7/r1 package and focus
+transport have passed coherent non-image phone acceptance, but until native
+visual photo and video acceptance passes on the reference phone, continue
+keeping the known-good `snapshot-50.0-r3` package installed beside it.
 
 ## Development package installation
 
@@ -90,7 +91,29 @@ retaining scene data:
   --stability-seconds 60
 ```
 
-Rollback removes only the independent packages:
+That r0 procedure records local-package identity constraints in
+`/etc/apk/world`. Do not later expect a package-name-only `apk upgrade` to
+replace them. The accepted OnePlus 6T r6/r0-to-r7/r1 transaction supplies the
+two r1 app APK paths explicitly and resolves PipeWire r7 from a separate
+offline repository:
+
+```sh
+stage=/absolute/path/to/camera-r7-r1
+sudo apk add --simulate --upgrade --allow-untrusted --network=no \
+  --interactive=no --repository "$stage/candidate" \
+  "$stage/candidate/aarch64/advanced-snapshot-0.1.0-r1.apk" \
+  "$stage/candidate/noarch/advanced-snapshot-lang-0.1.0-r1.apk"
+```
+
+Require exactly the PipeWire r6-to-r7 and both Advanced Snapshot r0-to-r1
+upgrades, with no removal, before running the same command without
+`--simulate`. The expected reference world-file change is exactly two updated
+Advanced Snapshot identity lines. Build the candidate and rollback repositories
+and follow the complete service, hash and rollback procedure in the
+[OnePlus 6T packaging guide](https://github.com/lolren/oneplus6t-pmos-fixes/blob/main/packaging/pmaports/README.md).
+
+For an initial r0 side-by-side installation, rollback removes only the
+independent packages:
 
 ```sh
 sudo apk del advanced-snapshot advanced-snapshot-lang

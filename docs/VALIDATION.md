@@ -38,7 +38,7 @@ build; only mail-patch framing and whitespace were removed before commit.
 - zero file ownership overlap with `snapshot-50.0-r3`; and
 - no Rust future-compatibility warnings in the final build.
 
-### Still required before a release tag
+### Still required at this checkpoint
 
 - side-by-side package installation on the OnePlus 6T;
 - native launch and all-three-camera preview checks;
@@ -81,10 +81,9 @@ package passed the complete manifest, AArch64 ELF, desktop, D-Bus, AppStream,
 GSettings, resource-namespace and stale-identifier validator and had no file
 ownership overlap with `snapshot-50.0-r3`.
 
-This is package acceptance, not phone acceptance. The matching PipeWire r7
-state transport, r1 helper result, all-three-camera stream and rear autofocus
-checks must pass as one rollback-safe device transaction before the installed
-r0/r6 baseline is superseded.
+This package checkpoint preceded phone acceptance. The matching PipeWire r7
+state transport and Advanced Snapshot r1 subsequently passed together in the
+coherent device transaction recorded below.
 
 ## OnePlus 6T side-by-side package acceptance
 
@@ -109,8 +108,8 @@ real transaction then installed those same two packages.
 
 `/usr/bin/advanced-snapshot` and its focus helper are owned only by
 `advanced-snapshot-0.1.0-r0`; `/usr/bin/snapshot` remains owned by
-`snapshot-50.0-r3`. PipeWire and WirePlumber stayed active, Waydroid stayed
-stopped, and no stale camera process remained.
+`snapshot-50.0-r3`. PipeWire and WirePlumber stayed active, the Waydroid
+Android session stayed stopped, and no stale camera process remained.
 
 The app launched through the existing Phosh graphical user session as
 `io.github.lolren.AdvancedSnapshot`, reported version 0.1.0 and loaded its
@@ -139,3 +138,70 @@ The exact committed test script was rerun from its default helper path and
 produced the same summary and hash. The pre/post manifests, world files, helper
 logs and summaries are retained on the reference phone under
 `/home/user/advanced-snapshot-install-0.1.0`.
+
+## OnePlus 6T r7/r1 coherent acceptance
+
+- Date: 2026-08-25
+- Installed stack: kernel r8, libcamera/IPA r24,
+  `pipewire-spa-libcamera-1.6.8-r7`, Snapshot r3 and Advanced Snapshot r1
+- Staging directory:
+  `/home/user/camera-focus-state-r7-r1-20260825`
+- Pre-transaction `/etc/apk/world` SHA-256:
+  `e91dd5dc4a85594da5e28d11c014f6fefaf3b16adc6329f7e1000685de84b32e`
+- Post-transaction `/etc/apk/world` SHA-256:
+  `d032cb41e42bda904382159b10198e5c2dd9b73cda58d3f0060993756388e276`
+
+All six candidate and rollback APK signatures were verified before the
+transaction. Because r0 had originally been installed from local files,
+apk-tools 3 retained identity constraints for the app packages. The accepted
+simulation therefore supplied the two r1 app APK paths explicitly and used the
+isolated candidate repository to resolve PipeWire r7. It proposed exactly
+three upgrades and no removal. The real transaction performed those same
+three upgrades. The world-file diff changed only the two Advanced Snapshot
+identity constraints; PipeWire remained dependency-owned and gained no world
+entry.
+
+The installed package owners are r1 for `/usr/bin/advanced-snapshot` and its
+focus helper, r7 for the PipeWire libcamera plugin, and the unchanged distro r3
+for `/usr/bin/snapshot`. PipeWire, WirePlumber and the camera portal were active
+afterward with no failed user units. The packaged app launched through its
+desktop D-Bus service, reported version 0.1.0 and the independent datadir, and
+stayed alive until the unattended test terminated it cleanly. Its stdout and
+stderr were empty; the runtime evidence SHA-256 is
+`c72f813b583e15bf70616d0f9369727fec91e95332fad1101a78210abb5129ae`.
+This proves package activation, not visual preview or capture acceptance.
+
+The final non-image all-sensor test used a central staged target and returned:
+
+```text
+main|serial=59|tap_result=focused|post_reset_metrics=183|restarts=0|lens_requests=0
+secondary|serial=63|tap_result=focused|post_reset_metrics=239|restarts=0|lens_requests=0
+front|serial=61|frames=120|focus_status=unsupported
+RESULT|pass|rear_stability_seconds=60
+```
+
+Its summary SHA-256 is
+`e5663d4a894169c097396f7f825199d4bcd211efa398fbb2c274e3fd76acb98c`.
+Both rear result files contained only `focused`, each with SHA-256
+`6c6a45ac86c5a830cda6b4f9552c0d6e782ca4b0ceff9ce261296168bb67699e`.
+The fixed-focus front helper rejected the request as unsupported; that log has
+SHA-256
+`fcad6f02190e3fb1d5af2c671becbdcbdfed290aa54d079462dd182166a8bad4`.
+An earlier off-centre tap on a low-detail area truthfully returned `failed`;
+moving the test target to the centre returned `focused`. That is expected
+optical behavior and demonstrates that acceptance is no longer mistaken for a
+focus result.
+
+Rollback was not executed on the live phone. A simulation proposed exactly the
+r7/r1-to-r6/r0 three-package downgrade, and a copied apk database model
+performed that downgrade with scripts disabled. Supplying the local PipeWire
+APK temporarily added an identity constraint; modeled
+`apk del pipewire-spa-libcamera` removed only that world entry because Snapshot,
+Advanced Snapshot and the Phosh base retain the plugin as a dependency. The
+plugin remained installed at r6 and the modeled world file returned exactly to
+the pre-update SHA-256 above. See the matching repository's pmaports packaging
+guide for the guarded commands.
+
+The Waydroid container service remained continuously active from before this
+transaction, while the Android session remained stopped. No camera process,
+autofocus test environment or failed user service remained after cleanup.
