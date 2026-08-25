@@ -281,3 +281,18 @@ This proves progressive application state and camera-crop dispatch on hardware.
 A user-observed physical smoothness check remains required because compositor
 screenshots temporarily pause rendering and cannot establish perceived frame
 cadence.
+
+## Preview-mode selection checkpoint
+
+- Date: 2026-08-25
+- Change: preview selection prefers a supported mode no taller than 720 pixels
+- Still capture: independently remains bounded at the largest supported 4:3
+  mode up to 2048x1536
+
+This separation is intentional for phones using libcamera's software ISP:
+the viewfinder and GTK compositor process frames continuously, while a still
+capture can use a larger sensor mode only when the shutter is pressed. If a
+camera advertises no suitable 640x480–1280x720 preview mode, the selector
+falls back to the first advertised mode rather than failing camera startup.
+The unit test covers a camera advertising both 1920x1080 and 1280x720 and
+requires the latter for the live viewfinder.

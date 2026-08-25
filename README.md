@@ -18,6 +18,7 @@ postmarketOS into an unmaintainable permanent fork.
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
+| Software-ISP-friendly preview | Selects a supported 720p-class live mode when available, while keeping still capture at the higher photo mode | Implemented |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |

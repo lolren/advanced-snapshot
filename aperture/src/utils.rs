@@ -32,7 +32,12 @@ pub(crate) mod caps {
     pub(crate) fn best_mode(caps: &gst::Caps) -> Option<Size> {
         const MIN_WIDTH: i32 = 640;
         const MIN_HEIGHT: i32 = 480;
-        const MAX_HEIGHT: i32 = 1080;
+        // Keep the live viewfinder light enough for software-ISP phones. Still
+        // capture uses `best_still_mode` below, so this does not reduce the
+        // saved-photo resolution. 720p is also a broadly supported mobile
+        // preview mode and gives the compositor more headroom for controls,
+        // focus feedback and zoom updates.
+        const MAX_HEIGHT: i32 = 720;
         const OPTIMAL_RATIO: f32 = 16.0 / 9.0;
 
         let mut best_size_optimal_ratio: Option<Size> = None;
@@ -434,6 +439,19 @@ mod tests {
             .collect(),
         ];
 
+        let caps_1080_with_720 = [
+            gst_video::VideoCapsBuilder::new()
+                .width(1920)
+                .height(1080)
+                .build(),
+            gst_video::VideoCapsBuilder::new()
+                .width(1280)
+                .height(720)
+                .build(),
+        ]
+        .into_iter()
+        .collect();
+
         let caps_fallback_4k = [
             gst_video::VideoCapsBuilder::new()
                 .width(3840)
@@ -491,6 +509,14 @@ mod tests {
                 })
             );
         }
+
+        assert_eq!(
+            caps::best_mode(&caps_1080_with_720),
+            Some(Size {
+                width: 1280,
+                height: 720
+            })
+        );
 
         for cap in caps_fallback_4k {
             assert_eq!(
