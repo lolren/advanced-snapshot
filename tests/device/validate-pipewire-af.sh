@@ -252,7 +252,9 @@ validate_rear() {
 	focus_result_file="$output/$name-focus-result.txt"
 	focus_error_file="$output/$name-focus-helper.log"
 	helper_status=0
-	timeout 20 "$focus_helper" focus "$serial" 0.70 0.38 0.18 \
+	# Use the centre of the deliberately staged target. An arbitrary low-detail
+	# off-centre window may truthfully return Failed and is not a transport bug.
+	timeout 20 "$focus_helper" focus "$serial" 0.50 0.50 0.18 \
 		>"$focus_result_file" 2>"$focus_error_file" || helper_status=$?
 	[ "$helper_status" -eq 0 ] || {
 		printf '%s: focus helper returned %s\n' "$name" "$helper_status" >&2

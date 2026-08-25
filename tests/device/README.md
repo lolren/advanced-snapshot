@@ -11,9 +11,11 @@ OnePlus 6T reference stack. Run it as the graphical login user, never as root:
 
 The script discovers current PipeWire serials instead of hard-coding them. It
 opens each sensor into a GStreamer fakesink and requires a generation-correlated
-`focused` result from both IMX519 and IMX376 before checking reset and stable
-continuous focus. It requires IMX371 to return the fixed-focus unsupported
-status after 120 frames. No photograph or video is saved.
+`focused` result from a staged central target on both IMX519 and IMX376 before
+checking reset and stable continuous focus. A low-detail tap may truthfully
+return `failed` and is not suitable as an acceptance target. The script
+requires IMX371 to return the fixed-focus unsupported status after 120 frames.
+No photograph or video is saved.
 
 PipeWire and WirePlumber are restarted per sensor so libcamera diagnostics can
 be isolated. Their prior active state and any `LIBCAMERA_LOG_*` user-service
