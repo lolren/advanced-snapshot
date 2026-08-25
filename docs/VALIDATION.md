@@ -218,3 +218,36 @@ the bounded portal-journal SHA-256 is
 That journal contains only orderly stop/start events. Both portal units,
 PipeWire and WirePlumber ended active with zero failed user units and no stale
 test state.
+
+## Pinch-to-zoom source gate
+
+- Date: 2026-08-25
+- Source state: local r2 candidate based on `bb1ff4a`
+- Build target: postmarketOS edge, AArch64, isolated strict pmbootstrap work
+  directory
+- Release compilation: passed
+- Application tests: 4 passed, 0 failed
+- Aperture tests: 6 passed, 0 failed
+
+The candidate adds a two-point `GtkGestureZoom` controller to the preview. It
+records the existing slider value when recognition begins, multiplies that
+value by the gesture delta, clamps the result to the same 1x–4x adjustment and
+writes the result back through the slider. The slider remains the single state
+source, so it updates Camerabin and the on-preview one-decimal value chip in the
+same callback. Tapping the chip sets the slider to 1x. Claiming the recognized
+two-point sequence prevents its release events from being interpreted as a
+tap-to-focus request.
+
+The exact source-tree gate was:
+
+```sh
+pmbootstrap -w /path/to/isolated-work -p /path/to/pmaports \
+  build --arch aarch64 --force --src /path/to/advanced-snapshot \
+  advanced-snapshot
+```
+
+The `--src` artifact carries a development timestamp suffix and an isolated
+throwaway signing key. It is deliberately not an install candidate. The next
+gate is a committed Git source pin, production-key signature and complete APK
+manifest validation, followed by touch/UI, all-sensor, photo and video checks
+on the reference OnePlus 6T.

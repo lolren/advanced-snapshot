@@ -15,7 +15,7 @@ camera stack” must always agree.
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
-| Zoom | 1x–4x UI | Camerabin zoom/crop | Preview and still framing agree |
+| Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
 | HDR | Hidden/unavailable | Multi-exposure capture, alignment, merge and tone map | Not implemented |
 | Manual shutter/ISO | Hidden/unavailable | Advertised controls with valid units and metadata | Not implemented |
@@ -26,3 +26,10 @@ non-image lower-layer, package-launch and generation-correlated autofocus
 checks. The application deliberately rejects focus-result mode on an older
 transport rather than treating an accepted request as optical success. Visual
 reticle, saved-photo and video acceptance remain separate UI tests.
+
+The r2 source adds synchronized pinch zoom. Four pure application tests cover
+gesture scaling, lower/upper clamping, invalid gesture values and the displayed
+value format; the complete source passed a clean AArch64 release build and all
+six Aperture tests. That proves build and state logic only. Touch arbitration,
+visible chip placement, preview/still framing and capture quality still require
+acceptance on the reference phone before r2 becomes the installed generation.

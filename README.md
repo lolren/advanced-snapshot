@@ -22,7 +22,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
-| Digital zoom | Provides 1x–4x Camerabin zoom | Implemented |
+| Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Implemented in r2 source |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
 | HDR and calibrated colour | Multi-frame merge, tone mapping, CCM and lens shading | Not implemented and never shown as available |
@@ -31,6 +31,24 @@ postmarketOS into an unmaintainable permanent fork.
 control is enabled only when the camera pipeline can implement and report it.
 See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the control path.
+
+## Using the mobile controls
+
+- Tap a subject in the rear-camera preview to request focus there. The square
+  is amber while the request is pending, green only after focus metadata says
+  `Focused`, and red after an optical or transport failure.
+- Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
+  value chip and the **Main Menu → Image Controls → Zoom** slider stay in sync.
+  Tap the value chip to return directly to 1x.
+- Open **Image Controls** for exposure compensation, colour saturation,
+  contrast and detail. **Reset** restores the sensor-aware defaults and 1x
+  zoom.
+- The countdown button offers the inherited 0, 3, 5 and 10 second choices;
+  composition guidelines remain a persisted preference.
+
+Zoom is a digital crop performed by Camerabin, not optical lens zoom. HDR,
+manual shutter/ISO and flash remain unavailable until the lower camera stack
+can implement and report them truthfully.
 
 ## Runtime requirements
 
@@ -90,9 +108,11 @@ The independently named r1 build is installed beside `snapshot-50.0-r3`.
 Truthful focus-result handling and its matching PipeWire transport have signed
 AArch64 packages, automated source/package checks and coherent phone runtime
 acceptance. Native visual photo/video acceptance remains required before
-Advanced Snapshot can replace Snapshot as the known-good UI. The next
-application work is the mobile control surface, resolution/aspect/timer
-controls and robust video status.
+Advanced Snapshot can replace Snapshot as the known-good UI. The r2 source
+adds the synchronized mobile pinch control and has passed a clean AArch64
+package build; signed-package and phone UI acceptance remain release gates.
+The next application work after that gate is resolution/aspect selection and
+more robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.

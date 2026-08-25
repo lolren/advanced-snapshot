@@ -503,6 +503,21 @@
                             </child>
                           </object>
                         </child>
+                        <child type="overlay">
+                          <object class="GtkButton" id="zoom_reset_button">
+                            <property name="label">1.0×</property>
+                            <property name="halign">center</property>
+                            <property name="valign">start</property>
+                            <property name="focus-on-click">False</property>
+                            <property name="tooltip-text" translatable="yes">Current digital zoom; tap to reset</property>
+                            <style>
+                              <class name="zoom-indicator"/>
+                              <class name="pill"/>
+                              <class name="osd"/>
+                              <class name="numeric"/>
+                            </style>
+                          </object>
+                        </child>
                         <child>
                           <object class="FlashBin" id="flash_bin">
                             <child>

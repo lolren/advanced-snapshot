@@ -36,6 +36,7 @@ mod imp {
         pub recording_duration: Cell<u32>,
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
+        pub pinch_zoom_start: Cell<f64>,
 
         #[property(get, set = Self::set_capture_mode, explicit_notify, default)]
         capture_mode: Cell<crate::CaptureMode>,
@@ -83,6 +84,8 @@ mod imp {
         pub sharpness_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub zoom_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub zoom_reset_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub reset_image_controls: TemplateChild<gtk::Button>,
     }
@@ -288,8 +291,47 @@ mod imp {
             self.zoom_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
-                move |scale| obj.imp().viewfinder.set_zoom(scale.value())
+                move |scale| {
+                    let zoom = scale.value();
+                    obj.imp().viewfinder.set_zoom(zoom);
+                    obj.imp()
+                        .zoom_reset_button
+                        .set_label(&format_zoom_label(zoom));
+                }
             ));
+            self.zoom_reset_button.connect_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.imp().zoom_scale.set_value(1.0)
+            ));
+
+            let zoom_gesture = gtk::GestureZoom::new();
+            zoom_gesture.connect_begin(glib::clone!(
+                #[weak]
+                obj,
+                move |gesture, _| {
+                    obj.imp().pinch_zoom_start.set(obj.imp().zoom_scale.value());
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                }
+            ));
+            zoom_gesture.connect_scale_changed(glib::clone!(
+                #[weak]
+                obj,
+                move |gesture, scale_delta| {
+                    let imp = obj.imp();
+                    let adjustment = imp.zoom_scale.adjustment();
+                    let zoom = pinch_zoom_value(
+                        imp.pinch_zoom_start.get(),
+                        scale_delta,
+                        adjustment.lower(),
+                        adjustment.upper(),
+                    );
+                    imp.zoom_scale.set_value(zoom);
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                }
+            ));
+            self.viewfinder.add_controller(zoom_gesture);
+
             self.reset_image_controls.connect_clicked(glib::clone!(
                 #[weak]
                 obj,
@@ -797,4 +839,49 @@ async fn stream() -> anyhow::Result<OwnedFd> {
 // Id used to identify the last-used camera.
 fn id_from_pw(camera: &aperture::Camera) -> glib::GString {
     camera.display_name()
+}
+
+fn pinch_zoom_value(start: f64, scale_delta: f64, lower: f64, upper: f64) -> f64 {
+    let start = if start.is_finite() { start } else { lower };
+    let scale_delta = if scale_delta.is_finite() && scale_delta > 0.0 {
+        scale_delta
+    } else {
+        1.0
+    };
+
+    (start * scale_delta).clamp(lower, upper)
+}
+
+fn format_zoom_label(zoom: f64) -> String {
+    format!("{zoom:.1}×")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_zoom_label, pinch_zoom_value};
+
+    #[test]
+    fn pinch_zoom_scales_from_gesture_start() {
+        assert_eq!(pinch_zoom_value(1.5, 2.0, 1.0, 4.0), 3.0);
+        assert_eq!(pinch_zoom_value(3.0, 0.5, 1.0, 4.0), 1.5);
+    }
+
+    #[test]
+    fn pinch_zoom_clamps_to_supported_ui_range() {
+        assert_eq!(pinch_zoom_value(3.0, 2.0, 1.0, 4.0), 4.0);
+        assert_eq!(pinch_zoom_value(2.0, 0.1, 1.0, 4.0), 1.0);
+    }
+
+    #[test]
+    fn pinch_zoom_rejects_invalid_scale_values() {
+        assert_eq!(pinch_zoom_value(2.0, f64::NAN, 1.0, 4.0), 2.0);
+        assert_eq!(pinch_zoom_value(2.0, -1.0, 1.0, 4.0), 2.0);
+        assert_eq!(pinch_zoom_value(f64::NAN, 2.0, 1.0, 4.0), 2.0);
+    }
+
+    #[test]
+    fn zoom_label_uses_one_decimal_and_multiplication_sign() {
+        assert_eq!(format_zoom_label(1.0), "1.0×");
+        assert_eq!(format_zoom_label(2.34), "2.3×");
+    }
 }
