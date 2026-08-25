@@ -323,8 +323,27 @@ overlay I/O stall; install them only as a matched package generation.
 
 The source diff and documentation checks pass, and the repository remains
 clean after the commit. No AArch64 package from this revision is claimed as
-installed: the host lacks the complete GTK/GObject/GStreamer development
-environment for the normal Cargo build, and the current pmbootstrap checkout
-does not provide a matching OnePlus 6T device buildroot for a fresh package.
-Physical acceptance still requires a matching package, launch, live-preview
-latency observation, saved-photo, video and rollback checks on the phone.
+installed: the current pmbootstrap checkout does not provide a matching
+OnePlus 6T device buildroot for a fresh package. Physical acceptance still
+requires a matching package, launch, live-preview latency observation,
+saved-photo, video and rollback checks on the phone.
+
+## Clean native source-validation checkpoint
+
+- Date: 2026-08-25
+- Source commit: `7b1e778`
+- Environment: disposable Debian sid container, Rust/Cargo 1.95 and the
+  current GTK4, libadwaita, Glycin, GStreamer and PipeWire development files
+
+The complete native workspace test command passed after supplying the ignored
+Meson-generated `src/config.rs` fallback used for direct Cargo invocations:
+
+```text
+cargo test --workspace --all-targets
+4 Advanced Snapshot tests passed
+6 Aperture tests passed
+```
+
+This validates the application and library source on x86-64. It does not
+replace AArch64 packaging or the still-open phone-side preview-latency,
+photo, video and visual acceptance gates.

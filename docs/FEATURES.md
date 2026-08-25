@@ -41,6 +41,7 @@ at most one latest camera update every 33 ms and flushes the exact endpoint.
 The bounded device trace advanced through 1.0x, 1.5x, 1.9x and 2.7x before its
 3.0x endpoint. This is automated device acceptance; physical visual and
 preview-latency acceptance of r4 remains open. Commit `fed2784` additionally
-keeps each preview branch at one downstream-leaky buffer; the source is pushed
-but the corresponding package still needs a matching AArch64 build and phone
-acceptance.
+keeps each preview branch at one downstream-leaky buffer. The latest source
+passes four application and six Aperture unit tests in a clean native
+GTK/GStreamer environment, but the corresponding AArch64 package still needs
+a matching build and phone acceptance.
