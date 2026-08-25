@@ -249,7 +249,20 @@ validate_rear() {
 	wait_for_new_settle "$log_file" 0
 
 	before=$(settle_count "$log_file")
-	timeout 20 "$focus_helper" focus "$serial" 0.70 0.38 0.18
+	focus_result_file="$output/$name-focus-result.txt"
+	focus_error_file="$output/$name-focus-helper.log"
+	helper_status=0
+	timeout 20 "$focus_helper" focus "$serial" 0.70 0.38 0.18 \
+		>"$focus_result_file" 2>"$focus_error_file" || helper_status=$?
+	[ "$helper_status" -eq 0 ] || {
+		printf '%s: focus helper returned %s\n' "$name" "$helper_status" >&2
+		return 1
+	}
+	grep -qx 'focused' "$focus_result_file" || {
+		printf '%s: autofocus did not report metadata-confirmed focus\n' \
+			"$name" >&2
+		return 1
+	}
 	wait_for_new_settle "$log_file" "$before"
 
 	reset_start=$(wc -l <"$log_file")
@@ -286,7 +299,7 @@ validate_rear() {
 		return 1
 	}
 	stop_stream
-	printf '%s|serial=%s|post_reset_metrics=%s|restarts=0|lens_requests=0\n' \
+	printf '%s|serial=%s|tap_result=focused|post_reset_metrics=%s|restarts=0|lens_requests=0\n' \
 		"$name" "$serial" "$metrics" >>"$output/summary.psv"
 }
 

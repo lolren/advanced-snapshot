@@ -74,7 +74,7 @@ diff -u "$work_dir/files.expected" "$work_dir/files.actual"
 tar -xf "$advanced_apk" -C "$root_dir" 2>/dev/null
 
 grep -qx 'pkgname = advanced-snapshot' "$root_dir/.PKGINFO"
-grep -qx 'pkgver = 0.1.0-r0' "$root_dir/.PKGINFO"
+grep -qx 'pkgver = 0.1.0-r1' "$root_dir/.PKGINFO"
 file "$root_dir/usr/bin/advanced-snapshot" | grep -q 'ARM aarch64'
 file "$root_dir/usr/libexec/advanced-snapshot-focus-control" | grep -q 'ARM aarch64'
 readelf -h "$root_dir/usr/bin/advanced-snapshot" | grep -q 'Machine:.*AArch64'

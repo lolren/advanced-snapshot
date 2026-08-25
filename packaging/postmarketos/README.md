@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`a73a3993263adb33604a1fad7f88d5e53e75f4c0`, and Cargo dependencies are
+`f163794d0bd4b796b4f8555c9af1a1e51f42ebf7`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -23,11 +23,14 @@ Snapshot package when it is available locally:
 ```sh
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r0.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r1.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk
 ```
 
-The validator checks the architecture, complete file manifest, desktop entry,
+The recipe runs all library and binary unit tests in the Cargo workspace,
+including the Aperture focus-result parser. Cross-compiled Rust doctests are
+excluded because `crossdirect` cannot resolve their target crates. The
+validator checks the architecture, complete file manifest, desktop entry,
 D-Bus service, AppStream metadata, GSettings schema, resource namespace, stale
 upstream identifiers, package signature and file ownership overlap. A host
 `apk` command can be used without setting `APK_VERIFY_TOOL`.

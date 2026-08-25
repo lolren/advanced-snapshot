@@ -50,6 +50,42 @@ build; only mail-patch framing and whitespace were removed before commit.
 The distro `snapshot-50.0-r3` remains the known-good camera application until
 those phone checks pass.
 
+## 0.1.0-r1 truthful autofocus package checkpoint
+
+- Date: 2026-08-25
+- Source commit: `f163794d0bd4b796b4f8555c9af1a1e51f42ebf7`
+- Target: postmarketOS edge, aarch64, musl
+- Source: immutable GitHub commit archive
+- Source archive SHA-512:
+  `5d1c8197cbe368e6e88313d6fd5e997e5a3cf5aeb442e490ae4be6492c75d0f2721b007e6400c072ac6361445f82fbb216bc258e8dbab19c3c62980d92c0b83d`
+- Main APK SHA-256:
+  `1e19e6d3bfa990d9ae4440fcc0364383e7cfc36de835689d2a2d5d1748368795`
+- Language APK SHA-256:
+  `7329bc3133cacd288e1f95e9cb93e69f71acc986b0bf1a875e8e4cd0469a47c8`
+
+The exact tracked recipe was copied byte-for-byte into the pinned pmaports
+tree and rebuilt from the downloaded archive. The recipe ran all library and
+binary unit tests in the Cargo workspace: the app binary had no unit tests and
+all six Aperture tests passed. These include focused/failed result parsing,
+ambiguous-result rejection, still-mode selection and existing caps helpers.
+
+An earlier `--workspace` check also passed all six unit tests, then exposed a
+`crossdirect` rustdoc limitation: the AArch64 doctest process could not resolve
+its already-built GStreamer/GTK target crates. The final recipe explicitly
+uses `--lib --bins`, retaining every unit test without invoking cross-compiled
+doctests. Aperture contains no documentation test examples, so no behavioral
+test was hidden or skipped by that correction.
+
+Both APK signatures verified against the published development key. The main
+package passed the complete manifest, AArch64 ELF, desktop, D-Bus, AppStream,
+GSettings, resource-namespace and stale-identifier validator and had no file
+ownership overlap with `snapshot-50.0-r3`.
+
+This is package acceptance, not phone acceptance. The matching PipeWire r7
+state transport, r1 helper result, all-three-camera stream and rear autofocus
+checks must pass as one rollback-safe device transaction before the installed
+r0/r6 baseline is superseded.
+
 ## OnePlus 6T side-by-side package acceptance
 
 - Date: 2026-08-25

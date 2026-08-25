@@ -42,11 +42,12 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   advertises the controls used by the interface.
 
 The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
-libcamera SPA r6 and postmarketOS edge. The truthful focus-result path requires
-the next SPA package revision documented in `oneplus6t-pmos-fixes`; until that
-coherent update is installed, the helper rejects result-driven focus instead
-of inventing success. Generic webcams still use the inherited Snapshot paths;
-phone-specific controls degrade safely when absent.
+libcamera SPA r6 and postmarketOS edge. The signed Advanced Snapshot r1 package
+and matching SPA r7 candidate build reproducibly, but remain a coherent device
+acceptance gate. Until the matching transport is installed, the helper rejects
+result-driven focus instead of inventing success. Generic webcams still use
+the inherited Snapshot paths; phone-specific controls degrade safely when
+absent.
 
 ## Build and test
 
@@ -87,11 +88,12 @@ patch or activate an untested dependency update on the phone. See
 ## Project status
 
 The independently named baseline is under active development and installed
-beside `snapshot-50.0-r3`. Truthful focus-result handling is implemented in
-source and is being packaged with its matching PipeWire transport. Native
-visual photo/video acceptance remains required before Advanced Snapshot can
-replace Snapshot as the known-good UI. The next application work is the mobile
-control surface, resolution/aspect/timer controls and robust video status.
+beside `snapshot-50.0-r3`. Truthful focus-result handling and its matching
+PipeWire transport have signed AArch64 packages and automated source/package
+checks. Coherent phone acceptance and native visual photo/video acceptance
+remain required before Advanced Snapshot can replace Snapshot as the
+known-good UI. The next application work is the mobile control surface,
+resolution/aspect/timer controls and robust video status.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
