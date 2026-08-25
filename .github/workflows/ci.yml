@@ -1,0 +1,32 @@
+name: Advanced Snapshot checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gtk-build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build and test in the pinned GTK environment
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            ghcr.io/gtk-rs/gtk4-rs/gtk4@sha256:89b799ae74f933b3e3ecc50086743c4ef0c684fa7ab6f091de72ddc65df8fd5e \
+            bash -euxo pipefail -c '
+              dnf -y install cargo rust rustfmt pkgconf-pkg-config gcc gcc-c++ make \
+                gtk4-devel libadwaita-devel gstreamer1-devel \
+                gstreamer1-plugins-base-devel pipewire-devel glycin-devel \
+                glycin-gtk4-devel openssl-devel
+              cargo fmt --all -- --check
+              CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
+                cargo test --locked --all-targets --all-features --workspace
+            '
