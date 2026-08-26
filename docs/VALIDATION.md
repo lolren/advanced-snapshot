@@ -644,3 +644,32 @@ because this workstation lacks the GTK/GLib/libadwaita development `.pc`
 files; the pinned GTK CI container and clean AArch64 package build remain the
 authoritative compile gates. No r12 APK has been built, installed or
 hardware-accepted, and the reference phone still has no usable SSH banner.
+
+## Advanced Snapshot r13 compile-fixed AArch64 package checkpoint
+
+- Date: 2026-08-26
+- Source commit: `eef98bbb16a5af6cdb21150811a4ea33d6543daf`
+- Recipe revision: `advanced-snapshot-0.1.0-r13`
+- GitHub source archive SHA-512:
+  `66a74459d9277e3cf9759c94a7e76c31f9466977b84f0ed20b949da5bc7888963c9149507646ed827a0830a062da6998f0a3aff27de5c9c626c6720ecfaca17f`
+
+The release fixes the initial exposure-control sensitivity callback so the
+full application compiles in the pMOS AArch64 environment. The build used
+pmbootstrap 3.11.1, the pinned pmaports base and the package recipe's
+immutable source archive. The cross-compiled Cargo check passed all 6
+application tests and 9 Aperture tests.
+
+The independent validator accepted signatures, AArch64 ELF files, expected
+file ownership, resource namespace, desktop/D-Bus metadata, AppStream data,
+GSettings schema, language split and non-overlap with distro Snapshot:
+
+```text
+advanced-snapshot-0.1.0-r13.apk: 0c12ce8685afcadd1794e4a530f231d461647e41066965b307b2a43d5f121c81
+advanced-snapshot-lang-0.1.0-r13.apk: a03b0a561e4355a4da506e29f0d8b7f16173da694155391e465a3dbfeaab1bd3
+public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
+```
+
+This is source/package validation only. The pair has not been installed or
+hardware-accepted; the matching libcamera r26 candidate, phone camera tests,
+preview latency, saved-photo/video checks and rollback test remain open while
+the reference phone exposes no usable SSH banner.
