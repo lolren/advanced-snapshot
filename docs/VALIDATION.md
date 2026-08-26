@@ -698,7 +698,14 @@ alignment is claimed.
 The pinned GTK build passed Meson compilation for both the application and
 helper, `cargo fmt --all -- --check`, 8 application tests, 5 HDR helper tests,
 9 Aperture tests and clippy with `--deny warnings`. A staged install verified
-the app, focus helper, HDR helper, schema and independent resources. The r14
-recipe has been source-pinned but has not yet had a clean signed AArch64 APK
-rebuild, phone installation or hardware image-quality acceptance; do not
+the app, focus helper, HDR helper, schema and independent resources. The clean
+signed AArch64 r14 pair passed the package validator:
+
+```text
+advanced-snapshot-0.1.0-r14.apk: 0df78733ec2fc3469dd11a4be274a0fb1bbbb9921dbf18601f99e6b0fa58b0ec
+advanced-snapshot-lang-0.1.0-r14.apk: 25d01d10d69099c6c6d837a0cdd30c8724b3e831bf8fbbdf0730e36d75b4d98f
+```
+
+The pair is included in the opt-in `camera-r26-r14` generation. Phone
+installation and hardware image-quality acceptance remain open; do not
 replace the retained r13/r11 artifact until those gates pass.

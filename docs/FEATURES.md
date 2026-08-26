@@ -63,5 +63,5 @@ keeps each preview branch at one downstream-leaky buffer. That r4-era source
 passed four application and six Aperture unit tests in a clean native
 GTK/GStreamer environment; the current strict-cap revision and its eight
 Aperture tests are recorded in [docs/VALIDATION.md](VALIDATION.md). The
-corresponding AArch64 package still needs a matching build and phone
-acceptance.
+corresponding AArch64 package is now signed and source/package validated; phone
+acceptance remains open.
