@@ -608,6 +608,17 @@ The pinned GTK build passed Meson compilation (including the focus helper's
 explicit libm link), formatting, all 6 application tests, all 9 Aperture tests,
 desktop/schema/AppStream validation and the Meson cargo test. The pMOS helper's
 fixture suite passed normal pulse, interruption restoration, off and
-no-hardware cases. This is source/package validation only: no AArch64 r11 APK
-was produced in this host run, and the reference phone still has no usable
-SSH/ADB/fastboot transport for live LED or capture acceptance.
+no-hardware cases. A clean postmarketOS edge AArch64/musl package build then
+passed all 15 cross-compiled tests and produced the signed pair below. The
+independent package validator accepted both APKs for signatures, AArch64 ELF,
+content, schema, AppStream and overlap:
+
+```text
+advanced-snapshot-0.1.0-r11.apk: f4dafe29a4682df10b4649fee3110dac419c8179098e0a9762f48a2251cf7c1b
+advanced-snapshot-lang-0.1.0-r11.apk: 40a9a822421d5640ce14f1046006bbb5b92b022862d977de0d7d14cf30f2c95a
+public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
+```
+
+The signed pair is source/package validated but not installed or hardware-
+accepted. The reference phone still exposes CDC-NCM without an SSH banner, so
+live LED, preview, capture and rollback acceptance remain open.
