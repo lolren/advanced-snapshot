@@ -8,3 +8,5 @@ diff --git a/src/meson.build b/src/meson.build
 +++ b/src/meson.build
 @@ -54,0 +55 @@
 +    'auditable',
+@@ -70,0 +71 @@
++    'auditable',

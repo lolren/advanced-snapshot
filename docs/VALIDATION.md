@@ -676,3 +676,29 @@ the reference phone exposes no usable SSH banner. Direct host `cargo test` is
 also blocked by the workstation's rustc 1.91.1 versus the locked dependency
 minimum of rustc 1.92; the pMOS AArch64 package test phase is the authoritative
 compile and test result for this recipe.
+
+## Advanced Snapshot Software HDR source checkpoint
+
+- Date: 2026-08-26
+- Source commit: `af69a7151b8fcba1d0650fd911f42e340279e8d0`
+- Recipe revision: `advanced-snapshot-0.1.0-r14`
+- GitHub source archive SHA-512:
+  `e5973d2b5e72d154e6243ded37d26b88328c50be66f5e83b7038794f41df6e0c6cfe4d6e890485b2cd2e6c83d1ecffe1343b09bcd9f815087c5fd99799d64e0a`
+
+This checkpoint adds an opt-in Software HDR path to Advanced Snapshot. The
+application captures dark, middle and bright JPEGs sequentially, then invokes
+the separately installed `advanced-snapshot-hdr` helper. The helper decodes
+the three images, merges non-clipped samples in linear light with a bounded
+global tone map, writes through a temporary file and atomically renames the
+result. All intermediate files are removed on success, capture failure,
+helper failure or stream teardown. Manual exposure and hardware flash are
+disabled for the sequence; moving subjects can ghost because no frame
+alignment is claimed.
+
+The pinned GTK build passed Meson compilation for both the application and
+helper, `cargo fmt --all -- --check`, 8 application tests, 5 HDR helper tests,
+9 Aperture tests and clippy with `--deny warnings`. A staged install verified
+the app, focus helper, HDR helper, schema and independent resources. The r14
+recipe has been source-pinned but has not yet had a clean signed AArch64 APK
+rebuild, phone installation or hardware image-quality acceptance; do not
+replace the retained r13/r11 artifact until those gates pass.

@@ -79,6 +79,7 @@ tar -tf "$advanced_apk" 2>/dev/null \
 cat > "$work_dir/files.expected" <<'EOF'
 usr/bin/advanced-snapshot
 usr/libexec/advanced-snapshot-focus-control
+usr/libexec/advanced-snapshot-hdr
 usr/share/advanced-snapshot/resources.gresource
 usr/share/applications/io.github.lolren.AdvancedSnapshot.desktop
 usr/share/dbus-1/services/io.github.lolren.AdvancedSnapshot.service
@@ -95,7 +96,9 @@ grep -qx 'pkgname = advanced-snapshot' "$root_dir/.PKGINFO"
 grep -Fqx "pkgver = $expected_version" "$root_dir/.PKGINFO"
 file "$root_dir/usr/bin/advanced-snapshot" | grep -q 'ARM aarch64'
 file "$root_dir/usr/libexec/advanced-snapshot-focus-control" | grep -q 'ARM aarch64'
+file "$root_dir/usr/libexec/advanced-snapshot-hdr" | grep -q 'ARM aarch64'
 readelf -h "$root_dir/usr/bin/advanced-snapshot" | grep -q 'Machine:.*AArch64'
+readelf -h "$root_dir/usr/libexec/advanced-snapshot-hdr" | grep -q 'Machine:.*AArch64'
 
 gresource list "$root_dir/usr/share/advanced-snapshot/resources.gresource" \
 	> "$work_dir/resources.actual"
