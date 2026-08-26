@@ -651,9 +651,11 @@ impl Camera {
             move |_, file| {
                 let window = obj.root().and_downcast::<crate::Window>().unwrap();
                 window.set_shutter_enabled(true);
-                // TODO Maybe report error via toast on None
                 if let Some(file) = file {
                     gallery.add_image(file);
+                } else {
+                    log::error!("Didn't find any file when taking a picture!");
+                    window.send_toast(&gettext("Could not save photo"));
                 }
             }
         ));
