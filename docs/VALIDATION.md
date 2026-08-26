@@ -489,3 +489,22 @@ This closes the source-level duplicate-stop and empty-output hazards. A
 physical test must still confirm a playable file, monotonic duration, stable
 preview during recording, clean stop and recovery from an encoder failure on
 the OnePlus 6T.
+
+## Video page-lifecycle checkpoint
+
+- Date: 2026-08-26
+- Source commit: the commit containing this checkpoint and the page-lifecycle guard
+- Change: defer camera-stream shutdown when the camera page hides during a
+  recording, and defer stream restart when the page returns before
+  `video-done`
+
+The gallery/navigation lifecycle now uses the same completion boundary as the
+shutter. Hiding the camera page requests recording stop but leaves camerabin
+running through muxer finalization. If the user returns early, stream startup
+waits for `video-done`; if the page remains hidden, the stream is stopped only
+after the completion signal. This avoids interrupting a recording or reopening
+the camera while its stop transition is still in progress.
+
+The pinned GTK CI container's formatting and locked full workspace test suite
+passed after this change. Physical navigation, playable-file and encoder-error
+acceptance remain pending on the recovered OnePlus 6T.

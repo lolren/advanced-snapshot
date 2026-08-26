@@ -655,7 +655,7 @@ impl Camera {
                     // Re-enable only after camerabin has emitted video-done.
                     // This prevents a second shutter press from racing the
                     // muxer's finalization and stop-capture transition.
-                    window.set_shutter_enabled(true);
+                    window.recording_finished();
                 }
                 if let Some(file) = file {
                     gallery.add_video(file);

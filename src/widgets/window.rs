@@ -38,6 +38,10 @@ mod imp {
         pub is_active_handle: RefCell<Option<glib::SignalHandlerId>>,
 
         pub inhibit_cookie: Cell<Option<u32>>,
+        /// A hidden camera page must keep the stream alive until camerabin
+        /// emits `video-done`, otherwise stopping the stream can interrupt
+        /// the muxer's asynchronous finalization.
+        pub recording_page_hidden: Cell<bool>,
     }
 
     impl Default for Window {
@@ -55,6 +59,7 @@ mod imp {
                 is_active_handle: Default::default(),
 
                 inhibit_cookie: Default::default(),
+                recording_page_hidden: Cell::new(false),
             }
         }
     }
@@ -66,11 +71,12 @@ mod imp {
             let obj = self.obj();
 
             if self.camera.is_recording_active() {
+                self.recording_page_hidden.set(true);
                 self.camera.stop_recording();
+            } else {
+                log::debug!("Camera page hidden: stopping stream");
+                self.camera.stop_stream();
             }
-
-            log::debug!("Camera page hidden: stopping stream");
-            self.camera.stop_stream();
 
             match obj.capture_mode() {
                 CaptureMode::Picture => obj.set_shutter_mode(crate::ShutterMode::Picture),
@@ -83,6 +89,14 @@ mod imp {
 
         #[template_callback]
         fn on_camera_page_showing(&self) {
+            if self.recording_page_hidden.get() && self.camera.is_recording_active() {
+                log::debug!(
+                    "Camera page showing while recording finalization is pending; deferring stream start"
+                );
+                self.obj().set_shutter_enabled(false);
+                return;
+            }
+
             log::debug!("Camera page showing: starting stream");
             self.camera.start_stream();
             self.obj().set_shutter_enabled(true);
@@ -458,6 +472,33 @@ impl Window {
 
     pub fn set_shutter_enabled(&self, enabled: bool) {
         self.action_set_enabled("win.take-picture", enabled);
+    }
+
+    /// Finish the page lifecycle after camerabin has emitted `video-done`.
+    ///
+    /// A recording may have been stopped because the camera page was hidden.
+    /// In that case the stream must be stopped only now. If the user returned
+    /// before finalization completed, start it on the visible page instead.
+    pub fn recording_finished(&self) {
+        let imp = self.imp();
+        if !imp.recording_page_hidden.take() {
+            self.set_shutter_enabled(true);
+            return;
+        }
+
+        let camera_page_visible = imp
+            .navigation_view
+            .visible_page()
+            .is_some_and(|page| page == *imp.camera_page);
+        if camera_page_visible {
+            log::debug!("Recording finalized while camera page was visible: starting stream");
+            imp.camera.start_stream();
+            self.set_shutter_enabled(true);
+        } else {
+            log::debug!("Recording finalized while camera page was hidden: stopping stream");
+            imp.camera.stop_stream();
+            self.set_shutter_enabled(false);
+        }
     }
 
     pub fn inhibit(&self, reason: &str) {
