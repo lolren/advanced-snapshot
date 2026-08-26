@@ -672,4 +672,7 @@ public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
 This is source/package validation only. The pair has not been installed or
 hardware-accepted; the matching libcamera r26 candidate, phone camera tests,
 preview latency, saved-photo/video checks and rollback test remain open while
-the reference phone exposes no usable SSH banner.
+the reference phone exposes no usable SSH banner. Direct host `cargo test` is
+also blocked by the workstation's rustc 1.91.1 versus the locked dependency
+minimum of rustc 1.92; the pMOS AArch64 package test phase is the authoritative
+compile and test result for this recipe.
