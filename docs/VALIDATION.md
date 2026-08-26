@@ -464,7 +464,7 @@ video, display and rollback acceptance remain open.
 ## Video finalization guard checkpoint
 
 - Date: 2026-08-26
-- Source commit: the commit containing this checkpoint and the video guard
+- Source commit: `7177e8683c51d8b7caeb83dc47d262da1242f9cc`
 - Change: serialize the stop transition through `video-done` and reject invalid
   recording outputs before gallery insertion
 
