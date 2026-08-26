@@ -18,7 +18,7 @@ postmarketOS into an unmaintainable permanent fork.
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
-| Software-ISP-friendly preview | Selects a supported 720p-class live mode when available, while keeping still capture at the higher photo mode | Implemented |
+| Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented in source; phone acceptance pending |
 | Latest-frame preview scheduling | Uses a one-buffer downstream-leaky queue so a slow compositor or software ISP drops old frames instead of showing a delayed viewfinder | Implemented |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
@@ -127,10 +127,17 @@ selection and more robust video status.
 Commit `fed2784` adds a one-buffer, downstream-leaky queue to every preview
 branch so slow conversion or composition drops stale frames instead of
 displaying a delayed viewfinder. The latest source tree passes all four
-application and six Aperture unit tests in a clean native GTK/GStreamer build
+application and eight Aperture unit tests in a clean native GTK/GStreamer build
 environment. Its new AArch64 package is not claimed as installed: a matching
 pmbootstrap device buildroot is still required before physical
 preview-latency acceptance.
+
+Revision `3ac146f` closes a negotiation gap in that optimization: when a
+camera advertises concrete modes, the live caps now contain only the selected
+720p-class mode instead of merely putting it first in a larger list. This
+prevents a software ISP from silently selecting a full-resolution preview.
+Range-only camera advertisements keep the generic fallback path. The revision
+is source-tested but is not installed on the wedged reference phone yet.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.

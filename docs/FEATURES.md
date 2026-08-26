@@ -7,7 +7,7 @@ camera stack” must always agree.
 | Capability | Application | PipeWire/libcamera requirement | Acceptance |
 | --- | --- | --- | --- |
 | Photo capture | Inherited Snapshot flow with full-frame mode selection | A negotiated RGB/YUV still stream | Decodable saved image at selected caps |
-| Preview quality and latency | Chooses a supported 720p-class live mode before using a ratio-checked 1080p fallback; still capture remains independently bounded at 2048x1536. Each preview branch keeps one buffer, drops old buffers downstream when the consumer falls behind, and the live sink does not wait for an already-late clock timestamp | Preview caps containing a suitable 640x480–1280x720 mode; GStreamer `queue` and sink QoS | The negotiated preview is no taller than 720 pixels when the camera advertises one, and the viewfinder remains near the newest camera timestamp under load |
+| Preview quality and latency | Restricts the live pipeline to a selected supported 720p-class mode before using a ratio-checked 1080p fallback; still capture remains independently bounded at 2048x1536. Each preview branch keeps one buffer, drops old buffers downstream when the consumer falls behind, and the live sink does not wait for an already-late clock timestamp | Preview caps containing a suitable 640x480–1280x720 mode; GStreamer `queue` and sink QoS | When concrete modes are advertised, the negotiated preview contains only the selected mode and is no taller than 720 pixels; the viewfinder remains near the newest camera timestamp under load |
 | Video capture | Inherited recording flow, timer and duration indicator | Working encoder/muxer and stable preview | Playable file, monotonic duration, clean stop |
 | Tap-to-focus | Preview gesture, oriented crop mapping and an amber/green/red result reticle | `AfMode`, `AfMetering`, `AfWindows`, `AfTrigger` plus generation-correlated `AfState` transport | Rear lens moves; green is shown only for `Focused`, red for `Failed`/transport error |
 | Continuous focus | Return to whole-frame monitoring after a tap | Stable continuous AF implementation | No lens sweep on Reset and no stable-scene hunting |
@@ -41,7 +41,9 @@ at most one latest camera update every 33 ms and flushes the exact endpoint.
 The bounded device trace advanced through 1.0x, 1.5x, 1.9x and 2.7x before its
 3.0x endpoint. This is automated device acceptance; physical visual and
 preview-latency acceptance of r4 remains open. Commit `fed2784` additionally
-keeps each preview branch at one downstream-leaky buffer. The latest source
-passes four application and six Aperture unit tests in a clean native
-GTK/GStreamer environment, but the corresponding AArch64 package still needs
-a matching build and phone acceptance.
+keeps each preview branch at one downstream-leaky buffer. That r4-era source
+passed four application and six Aperture unit tests in a clean native
+GTK/GStreamer environment; the current strict-cap revision and its eight
+Aperture tests are recorded in [docs/VALIDATION.md](VALIDATION.md). The
+corresponding AArch64 package still needs a matching build and phone
+acceptance.

@@ -386,3 +386,33 @@ CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
 This removes the host-only dependency limitation from the previous check. It
 still validates source behavior and compilation on x86-64, not the AArch64
 package or physical camera preview, photo, video and lifecycle behavior.
+
+## Strict preview-cap negotiation checkpoint
+
+- Date: 2026-08-26
+- Source commit: `3ac146f`
+- Change: concrete live camera modes are restricted to the selected
+  720p-class mode; range-only advertisements retain the original fallback
+
+The earlier selector placed the preferred mode first and then appended every
+advertised mode. That was only a negotiation preference: a source or
+downstream element could still select a full-resolution preview and overload a
+software ISP. The new path returns the selected fixed mode when it can prove
+that the source advertises concrete width, height and framerate combinations.
+It preserves the original caps when no concrete selection can be established,
+so generic cameras with ranges do not lose their negotiation fallback.
+
+The pinned GTK CI container passed formatting, Meson configuration and the
+locked full workspace suite:
+
+```text
+cargo fmt --all -- --check
+CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
+  cargo test --locked --all-targets --all-features --workspace
+4 Advanced Snapshot tests passed
+8 Aperture tests passed
+```
+
+This is a source-level performance fix. A matching AArch64 package still needs
+to be built and installed, followed by physical preview-frame-rate, photo,
+video and rollback checks on the recovered OnePlus 6T.
