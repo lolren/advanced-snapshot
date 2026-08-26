@@ -38,6 +38,20 @@ and uses red for `failed` or an infrastructure error. A new tap terminates the
 previous helper and generation checks suppress every stale callback. The
 fixed-focus front camera publishes no AF state and receives no focus gesture.
 
+## Manual exposure
+
+The Image Controls sheet keeps automatic exposure enabled by default. When the
+user disables it, Aperture debounces changes to the shutter-time and analogue-
+gain sliders and invokes the same helper with the selected camera serial. The
+helper discovers `ExposureTime`, `ExposureTimeMode`, `AnalogueGain` and
+`AnalogueGainMode` IDs at runtime, then submits both manual values in one
+PipeWire property update. The simple IPA converts microseconds and linear gain
+to the sensor's V4L2 units, clamps them to the advertised limits and reports
+the applied modes in frame metadata. Re-enabling automatic exposure submits
+both automatic modes together. This keeps the app independent of libcamera
+numeric IDs and makes unsupported cameras fail as an unavailable control,
+rather than silently changing a different property.
+
 ## Bounded rear flash
 
 The optional **Hardware flash** switch does not write LED sysfs files from the

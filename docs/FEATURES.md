@@ -14,6 +14,7 @@ camera stack” must always agree.
 | Continuous focus | Return to whole-frame monitoring after a tap | Stable continuous AF implementation | No lens sweep on Reset and no stable-scene hunting |
 | Fixed focus | No focus affordance | Camera advertises no AF controls | Front stream works; focus request reports unsupported |
 | Exposure | -1..+1 EV UI | Standard `ExposureValue` | Metadata echoes request and pixels move unless sensor-limited |
+| Manual shutter and gain | Automatic-exposure switch plus shutter-time and analogue-gain controls | `ExposureTimeMode`, `ExposureTime`, `AnalogueGainMode` and `AnalogueGain` with valid sensor ranges | Manual requests persist for subsequent frames; switching automatic mode restores statistics-driven regulation |
 | Sensor-aware startup defaults | Applies the selected sensor's tuned colour/contrast defaults even when Aperture selects the first camera during startup | Camera display-name model matching | IMX371, IMX376 and IMX519 defaults are unit-tested; unknown cameras use a conservative fallback |
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
@@ -21,7 +22,7 @@ camera stack” must always agree.
 | Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
 | HDR | Hidden/unavailable | Multi-exposure capture, alignment, merge and tone map | Not implemented |
-| Manual shutter/ISO | Hidden/unavailable | Advertised controls with valid units and metadata | Not implemented |
+| Vendor ISO calibration | No vendor-specific ISO label; manual analogue gain is exposed in linear units | Sensor gain model and a client-side ISO mapping would be required | Not implemented; the gain control remains honest and bounded |
 | Hardware flash pulse | Opt-in rear-camera switch; starts a bounded `pmos-camera-flash` pulse and stops it safely on capture failure, camera switch or page teardown | Executable helper with writable `*:flash` LED channels; helper saves/restores values, caps duration at 5 seconds and handles interruption | Verify rear LEDs illuminate for the requested capture and return to their prior values; front camera must never pulse |
 
 The hardware-flash control is deliberately narrower than Android's automatic

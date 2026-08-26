@@ -589,6 +589,66 @@
                                 </child>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Automatic exposure</property>
+                                    <property name="subtitle" translatable="yes">Let the camera regulate shutter and analogue gain</property>
+                                    <child>
+                                      <object class="GtkSwitch" id="auto_exposure_switch">
+                                        <property name="active">True</property>
+                                        <property name="valign">center</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Shutter (µs)</property>
+                                    <property name="subtitle" translatable="yes">Manual exposure time; the sensor may clamp its limits</property>
+                                    <child>
+                                      <object class="GtkScale" id="shutter_scale">
+                                        <property name="width-request">175</property>
+                                        <property name="valign">center</property>
+                                        <property name="digits">0</property>
+                                        <property name="draw-value">True</property>
+                                        <property name="value-pos">right</property>
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">100</property>
+                                            <property name="upper">33333</property>
+                                            <property name="value">8333</property>
+                                            <property name="step-increment">100</property>
+                                            <property name="page-increment">1000</property>
+                                          </object>
+                                        </property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Analogue gain</property>
+                                    <property name="subtitle" translatable="yes">Manual linear sensor gain; this is not a vendor ISO control</property>
+                                    <child>
+                                      <object class="GtkScale" id="gain_scale">
+                                        <property name="width-request">175</property>
+                                        <property name="valign">center</property>
+                                        <property name="digits">1</property>
+                                        <property name="draw-value">True</property>
+                                        <property name="value-pos">right</property>
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">1</property>
+                                            <property name="upper">16</property>
+                                            <property name="value">1</property>
+                                            <property name="step-increment">0.1</property>
+                                            <property name="page-increment">1</property>
+                                          </object>
+                                        </property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Colour</property>
                                     <child>
                                       <object class="GtkScale" id="saturation_scale">

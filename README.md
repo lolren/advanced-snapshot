@@ -24,6 +24,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
+| Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source; requires the matching libcamera simple-IPA patch and phone acceptance |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
@@ -48,6 +49,9 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Open **Image Controls** for exposure compensation, colour saturation,
   contrast and detail. **Reset** restores the sensor-aware defaults and 1x
   zoom.
+- Leave **Automatic exposure** enabled for normal use. Turn it off to expose
+  the **Shutter (µs)** and **Analogue gain** controls. These submit standard
+  libcamera controls; the active sensor may clamp them to its safe range.
 - On a rear camera, enable **Image Controls → Hardware flash** for one bounded
   LED pulse during the next still capture. It is off by default, requires the
   optional `oneplus6t-pmos-fixes` helper, and is disabled for the fixed-focus
@@ -55,10 +59,11 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - The countdown button offers the inherited 0, 3, 5 and 10 second choices;
   composition guidelines remain a persisted preference.
 
-Zoom is a digital crop performed by Camerabin, not optical lens zoom. HDR,
-manual shutter/ISO and automatic flash metering remain unavailable. The
-hardware-flash switch is an explicit, bounded LED pulse; it is not HDR and does
-not claim Android-vendor flash/exposure parity.
+Zoom is a digital crop performed by Camerabin, not optical lens zoom. HDR and
+automatic flash metering remain unavailable. Manual analogue gain is not the
+same thing as a vendor ISO mode, and no vendor-specific ISO calibration is
+claimed. The hardware-flash switch is an explicit, bounded LED pulse; it is not
+HDR and does not claim Android-vendor flash/exposure parity.
 
 ## Runtime requirements
 

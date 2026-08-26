@@ -110,6 +110,8 @@ mod imp {
         pub focus_process: RefCell<Option<gio::Subprocess>>,
         pub adjustment_generation: Cell<u64>,
         pub adjustment_process: RefCell<Option<gio::Subprocess>>,
+        pub exposure_generation: Cell<u64>,
+        pub exposure_process: RefCell<Option<gio::Subprocess>>,
 
         pub picture: gtk::Picture,
         pub offload: gtk::GraphicsOffload,
@@ -150,6 +152,14 @@ mod imp {
             self.adjustment_generation
                 .set(self.adjustment_generation.get().wrapping_add(1));
             if let Some(process) = self.adjustment_process.take() {
+                process.force_exit();
+            }
+        }
+
+        pub(super) fn clear_exposure_state(&self) {
+            self.exposure_generation
+                .set(self.exposure_generation.get().wrapping_add(1));
+            if let Some(process) = self.exposure_process.take() {
                 process.force_exit();
             }
         }
@@ -209,6 +219,7 @@ mod imp {
             }
             self.clear_focus_state();
             self.clear_image_adjustment_state();
+            self.clear_exposure_state();
 
             // We reset to READY if we landed on the ERROR state on the previous
             // camera.
@@ -970,6 +981,107 @@ impl Viewfinder {
         ));
     }
 
+    /// Sets a fixed sensor exposure time and analogue gain for the active
+    /// camera. Values are clamped by the libcamera IPA to the sensor's real
+    /// limits; the UI deliberately uses ordinary units (microseconds and
+    /// linear gain) instead of register codes.
+    pub fn set_manual_exposure(&self, exposure_time_us: i32, analogue_gain: f64) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Manual exposure unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_exposure_state();
+        let generation = imp.exposure_generation.get();
+        let arguments = [
+            serial.to_string(),
+            exposure_time_us.max(1).to_string(),
+            format!("{:.4}", analogue_gain.clamp(0.1, 256.0)),
+        ];
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("manual"),
+            OsStr::new(&arguments[0]),
+            OsStr::new(&arguments[1]),
+            OsStr::new(&arguments[2]),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start manual-exposure helper: {err}");
+                return;
+            }
+        };
+        imp.exposure_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.exposure_generation.get() != generation {
+                    return;
+                }
+                imp.exposure_process.take();
+                if let Err(err) = result {
+                    log::debug!("Manual exposure was not applied: {err}");
+                }
+            }
+        ));
+    }
+
+    /// Restores automatic exposure and analogue gain on the active camera.
+    pub fn set_auto_exposure(&self) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Automatic exposure unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_exposure_state();
+        let generation = imp.exposure_generation.get();
+        let serial_arg = serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("auto"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start automatic-exposure helper: {err}");
+                return;
+            }
+        };
+        imp.exposure_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.exposure_generation.get() != generation {
+                    return;
+                }
+                imp.exposure_process.take();
+                if let Err(err) = result {
+                    log::debug!("Automatic exposure was not restored: {err}");
+                }
+            }
+        ));
+    }
+
     /// Sets Camerabin's capture-wide digital zoom factor.
     pub fn set_zoom(&self, zoom: f64) {
         let camerabin = self.imp().camerabin();
@@ -1226,6 +1338,7 @@ impl Viewfinder {
     /// A black frame will be shown after this methods has been called.
     pub fn stop_stream(&self) {
         self.imp().clear_image_adjustment_state();
+        self.imp().clear_exposure_state();
         if let Err(err) = self.imp().camerabin().set_state(gst::State::Null) {
             log::error!("Could not pause camerabin: {err}");
             self.imp().set_state(ViewfinderState::Error);

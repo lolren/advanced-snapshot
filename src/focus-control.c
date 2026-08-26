@@ -30,6 +30,8 @@ enum operation {
 	OPERATION_FOCUS,
 	OPERATION_RESET,
 	OPERATION_ADJUST,
+	OPERATION_MANUAL_EXPOSURE,
+	OPERATION_AUTO_EXPOSURE,
 };
 
 enum stage {
@@ -68,6 +70,8 @@ struct app {
 	double saturation;
 	double contrast;
 	double sharpness;
+	int32_t exposure_time_us;
+	double analogue_gain;
 
 	uint32_t af_mode_id;
 	uint32_t af_trigger_id;
@@ -77,6 +81,10 @@ struct app {
 	uint32_t saturation_id;
 	uint32_t contrast_id;
 	uint32_t sharpness_id;
+	uint32_t exposure_time_id;
+	uint32_t exposure_time_mode_id;
+	uint32_t analogue_gain_id;
+	uint32_t analogue_gain_mode_id;
 	int crop_x;
 	int crop_y;
 	unsigned int crop_width;
@@ -174,6 +182,18 @@ static bool parse_double(const char *text, double *value)
 	return true;
 }
 
+static bool parse_int32(const char *text, int32_t *value)
+{
+	char *end = NULL;
+	errno = 0;
+	long parsed = strtol(text, &end, 10);
+	if (errno || end == text || *end != '\0' ||
+	    parsed < INT32_MIN || parsed > INT32_MAX)
+		return false;
+	*value = (int32_t)parsed;
+	return true;
+}
+
 static bool parse_crop(struct app *app, const char *text)
 {
 	char extra;
@@ -266,6 +286,18 @@ static int apply_controls(struct app *app)
 				   (float)app->contrast);
 		add_float_property(&builder, app->sharpness_id,
 				   (float)app->sharpness);
+	} else if (app->operation == OPERATION_MANUAL_EXPOSURE) {
+		/* ExposureTimeModeManual and AnalogueGainModeManual. */
+		add_int_property(&builder, app->exposure_time_mode_id, 1);
+		add_int_property(&builder, app->exposure_time_id,
+				 app->exposure_time_us);
+		add_int_property(&builder, app->analogue_gain_mode_id, 1);
+		add_float_property(&builder, app->analogue_gain_id,
+				   (float)app->analogue_gain);
+	} else if (app->operation == OPERATION_AUTO_EXPOSURE) {
+		/* ExposureTimeModeAuto and AnalogueGainModeAuto. */
+		add_int_property(&builder, app->exposure_time_mode_id, 0);
+		add_int_property(&builder, app->analogue_gain_mode_id, 0);
 	} else {
 		double x = app->focus_x;
 		double y = app->focus_y;
@@ -348,6 +380,14 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->contrast_id = control_id;
 	else if (spa_streq(description, "Sharpness"))
 		app->sharpness_id = control_id;
+	else if (spa_streq(description, "ExposureTime"))
+		app->exposure_time_id = control_id;
+	else if (spa_streq(description, "ExposureTimeMode"))
+		app->exposure_time_mode_id = control_id;
+	else if (spa_streq(description, "AnalogueGain"))
+		app->analogue_gain_id = control_id;
+	else if (spa_streq(description, "AnalogueGainMode"))
+		app->analogue_gain_mode_id = control_id;
 }
 
 static void request_controls(struct app *app)
@@ -486,6 +526,16 @@ static void core_done(void *data, uint32_t id, int seq)
 			finish(app, 3, "camera does not support image adjustments");
 			return;
 		}
+		if ((app->operation == OPERATION_MANUAL_EXPOSURE ||
+		     app->operation == OPERATION_AUTO_EXPOSURE) &&
+		    (app->exposure_time_id == 0 ||
+		     app->exposure_time_mode_id == 0 ||
+		     app->analogue_gain_id == 0 ||
+		     app->analogue_gain_mode_id == 0)) {
+			finish(app, 3,
+			       "camera does not support manual exposure controls");
+			return;
+		}
 
 		if (app->operation == OPERATION_FOCUS)
 			app->baseline_af_trigger_generation =
@@ -548,8 +598,10 @@ static void usage(const char *program)
 	fprintf(stderr,
 		"usage: %s focus SERIAL X Y SIZE\n"
 		"       %s reset SERIAL\n"
-		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n",
-		program, program, program);
+		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n"
+		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
+		"       %s auto SERIAL\n",
+		program, program, program, program, program);
 }
 
 int main(int argc, char **argv)
@@ -585,6 +637,16 @@ int main(int argc, char **argv)
 		   app.contrast >= 0.0 && app.contrast <= 2.0 &&
 		   app.sharpness >= 0.0 && app.sharpness <= 2.0) {
 		app.operation = OPERATION_ADJUST;
+	} else if (argc == 5 && spa_streq(argv[1], "manual") &&
+		   parse_uint64(argv[2], &app.target_serial) &&
+		   parse_int32(argv[3], &app.exposure_time_us) &&
+		   parse_double(argv[4], &app.analogue_gain) &&
+		   app.exposure_time_us > 0 &&
+		   app.analogue_gain >= 0.1 && app.analogue_gain <= 256.0) {
+		app.operation = OPERATION_MANUAL_EXPOSURE;
+	} else if (argc == 3 && spa_streq(argv[1], "auto") &&
+		   parse_uint64(argv[2], &app.target_serial)) {
+		app.operation = OPERATION_AUTO_EXPOSURE;
 	} else {
 		usage(argv[0]);
 		return 2;

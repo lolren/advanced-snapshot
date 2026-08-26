@@ -50,6 +50,7 @@ mod imp {
         pub recording_duration: Cell<u32>,
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
+        pub manual_exposure_handler: RefCell<Option<glib::source::SourceId>>,
         pub flash_generation: Cell<u64>,
         pub flash_process: RefCell<Option<gio::Subprocess>>,
         pub pinch_zoom_start: Cell<f64>,
@@ -95,6 +96,12 @@ mod imp {
         pub qr_bottom_sheet: TemplateChild<crate::QrBottomSheet>,
         #[template_child]
         pub exposure_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub auto_exposure_switch: TemplateChild<gtk::Switch>,
+        #[template_child]
+        pub shutter_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub gain_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub saturation_scale: TemplateChild<gtk::Scale>,
         #[template_child]
@@ -324,6 +331,31 @@ mod imp {
                     move |_| obj.queue_image_adjustments()
                 ));
             }
+            self.auto_exposure_switch
+                .connect_active_notify(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |switch| {
+                        obj.update_manual_exposure_controls();
+                        if switch.is_active() {
+                            obj.queue_auto_exposure();
+                        } else {
+                            obj.queue_manual_exposure();
+                        }
+                    }
+                ));
+            for scale in [&*self.shutter_scale, &*self.gain_scale] {
+                scale.connect_value_changed(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |_| {
+                        if !obj.imp().auto_exposure_switch.is_active() {
+                            obj.queue_manual_exposure();
+                        }
+                    }
+                ));
+            }
+            self.update_manual_exposure_controls();
             self.zoom_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
@@ -720,6 +752,7 @@ impl Camera {
 
     pub fn stop_stream(&self) {
         self.stop_hardware_flash();
+        self.clear_manual_exposure_state();
         self.imp().viewfinder.stop_stream();
     }
 
@@ -758,6 +791,63 @@ impl Camera {
             ),
         );
         imp.adjustment_handler.replace(Some(handler));
+    }
+
+    fn clear_manual_exposure_state(&self) {
+        if let Some(handler) = self.imp().manual_exposure_handler.take() {
+            handler.remove();
+        }
+    }
+
+    fn update_manual_exposure_controls(&self) {
+        let manual = !self.imp().auto_exposure_switch.is_active();
+        self.imp().shutter_scale.set_sensitive(manual);
+        self.imp().gain_scale.set_sensitive(manual);
+    }
+
+    fn queue_manual_exposure(&self) {
+        self.clear_manual_exposure_state();
+        let handler = glib::timeout_add_local_once(
+            Duration::from_millis(120),
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    camera.imp().manual_exposure_handler.take();
+                    camera.apply_manual_exposure();
+                }
+            ),
+        );
+        self.imp().manual_exposure_handler.replace(Some(handler));
+    }
+
+    fn apply_manual_exposure(&self) {
+        let imp = self.imp();
+        if imp.auto_exposure_switch.is_active() {
+            imp.viewfinder.set_auto_exposure();
+            return;
+        }
+
+        imp.viewfinder.set_manual_exposure(
+            imp.shutter_scale.value().round() as i32,
+            imp.gain_scale.value(),
+        );
+    }
+
+    fn queue_auto_exposure(&self) {
+        self.clear_manual_exposure_state();
+        let handler = glib::timeout_add_local_once(
+            Duration::from_millis(120),
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    camera.imp().manual_exposure_handler.take();
+                    camera.imp().viewfinder.set_auto_exposure();
+                }
+            ),
+        );
+        self.imp().manual_exposure_handler.replace(Some(handler));
     }
 
     fn begin_pinch_zoom(&self) {
@@ -835,6 +925,9 @@ impl Camera {
         }
 
         imp.exposure_scale.set_value(0.0);
+        imp.auto_exposure_switch.set_active(true);
+        imp.shutter_scale.set_value(8333.0);
+        imp.gain_scale.set_value(1.0);
         imp.saturation_scale.set_value(1.25);
         imp.contrast_scale.set_value(1.05);
         imp.sharpness_scale.set_value(1.0);
@@ -921,6 +1014,9 @@ impl Camera {
         let (contrast, saturation) = image_control_defaults(&camera.display_name());
 
         imp.exposure_scale.set_value(0.0);
+        imp.auto_exposure_switch.set_active(true);
+        imp.shutter_scale.set_value(8333.0);
+        imp.gain_scale.set_value(1.0);
         imp.saturation_scale.set_value(saturation);
         imp.contrast_scale.set_value(contrast);
         imp.sharpness_scale.set_value(1.0);
