@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`ec9f03db6177b8c0ee5fda826668fbbce59d9423`, and Cargo dependencies are
+`2a9763b8f42c1bb755a507de1cc49ed3c8f09a77`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -23,10 +23,16 @@ Snapshot package when it is available locally:
 ```sh
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r9.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r10.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r9.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r10.apk
 ```
+
+Package revision r10 serializes and cancels overlapping image-adjustment
+helper processes. Rapid exposure, contrast or saturation slider changes cannot
+leave stale helpers applying old values after a camera switch, page teardown or
+stream stop. This is a userspace safety fix; it does not claim to repair a
+kernel display driver or replace hardware acceptance testing.
 
 The recipe runs all library and binary unit tests in the Cargo workspace,
 including the Aperture focus-result parser. Cross-compiled Rust doctests are

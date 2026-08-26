@@ -558,3 +558,33 @@ VibeMarketOS pins. The package release was incremented from r6 to r7 and the
 archive checksum was obtained from the immutable GitHub commit archive. A clean
 AArch64 pmbootstrap build and artifact validation are still required before
 this recipe is installed on the phone.
+
+## Advanced Snapshot r10 adjustment-serialization package checkpoint
+
+- Date: 2026-08-26
+- Source commit: `2a9763b8f42c1bb755a507de1cc49ed3c8f09a77`
+- Recipe revision: `advanced-snapshot-0.1.0-r10`
+- Source archive SHA-512:
+  `ebb1e7818dd9777a5b794ba0667cf449957949a0f3d6e4cb014f12f85538b2d9b9dfad9fe5ec700e2c3accbd6e555cfc457f7cde78c22a03ef93b060bfc1a5b5`
+
+The image-adjustment helper is now serialized and cancellable. A newer slider
+value, camera switch, page teardown or stream stop invalidates the previous
+generation, and stale completion callbacks are ignored. This prevents rapid
+slider movement from applying old values after a newer request or keeping a
+dead helper attached to the camera page.
+
+The clean postmarketOS edge AArch64/musl build completed its package test phase
+with all 15 cross-compiled tests passing (6 application and 9 Aperture) and
+produced the matched release pair. Both APKs passed the independent signature,
+architecture and package-content validator:
+
+```text
+advanced-snapshot-0.1.0-r10.apk: f832c5b3ae4e96969fccba8c8f563e7ff8a7372e3fef7d9b32dc7d5fb9828eb9
+advanced-snapshot-lang-0.1.0-r10.apk: 2756823e3cb3ad68575bbe96d88a20cc99ecdc7440c405ba143baf43fdf99fb9
+public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
+```
+
+The r10 pair is source/package validated but not installed or hardware-
+accepted. The reference OnePlus 6T still exposes CDC-NCM without an SSH
+banner, so preview, saved-photo, video, display and rollback acceptance remain
+open.
