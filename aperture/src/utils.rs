@@ -242,7 +242,19 @@ pub(crate) mod caps {
         }
     }
 
-    // For each resolution and format we only keep the highest resolution.
+    fn has_fixed_mode(caps: &gst::Caps) -> bool {
+        caps.iter().any(|structure| {
+            structure.get::<i32>("width").is_ok() && structure.get::<i32>("height").is_ok()
+        })
+    }
+
+    // For live preview, keep only the selected resolution and format when the
+    // source advertises concrete modes.  Appending the complete source caps
+    // here would turn the selection back into a preference: caps negotiation
+    // could then choose a full-resolution mode and make a software ISP feed
+    // much more work than the viewfinder needs.  Sources that expose only
+    // ranges or omit a usable framerate retain their original caps so generic
+    // cameras continue to negotiate normally.
     pub(crate) fn filter_caps(caps: gst::Caps) -> gst::Caps {
         let mut best_caps = gst::Caps::new_empty();
         caps.iter().for_each(|s| {
@@ -253,8 +265,11 @@ pub(crate) mod caps {
             }
         });
 
-        best_caps.merge(caps);
-        best_caps
+        if !best_caps.is_empty() && has_fixed_mode(&best_caps) {
+            best_caps
+        } else {
+            caps
+        }
     }
 
     #[test]
@@ -285,6 +300,49 @@ pub(crate) mod caps {
                 height: 1536,
             })
         );
+    }
+
+    #[test]
+    fn test_filter_caps_keeps_preview_at_selected_mode() {
+        gst::init().expect("Failed to initialize gst");
+
+        let caps = [
+            gst_video::VideoCapsBuilder::new()
+                .format(gst_video::VideoFormat::I420)
+                .width(1920)
+                .height(1080)
+                .framerate(gst::Fraction::new(30, 1))
+                .build(),
+            gst_video::VideoCapsBuilder::new()
+                .format(gst_video::VideoFormat::I420)
+                .width(1280)
+                .height(720)
+                .framerate(gst::Fraction::new(30, 1))
+                .build(),
+        ]
+        .into_iter()
+        .collect();
+
+        let filtered = super::caps::filter_caps(caps);
+
+        assert!(!filtered.is_empty());
+        assert!(filtered.iter().all(|structure| {
+            structure.get::<i32>("width") == Ok(1280) && structure.get::<i32>("height") == Ok(720)
+        }));
+    }
+
+    #[test]
+    fn test_filter_caps_preserves_unselectable_ranges() {
+        gst::init().expect("Failed to initialize gst");
+
+        let caps = gst::Caps::builder("video/x-raw")
+            .field(
+                "framerate",
+                gst::FractionRange::new(gst::Fraction::new(0, 1), gst::Fraction::new(30, 1)),
+            )
+            .build();
+
+        assert_eq!(super::caps::filter_caps(caps.clone()), caps);
     }
 }
 
