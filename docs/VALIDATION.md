@@ -460,3 +460,32 @@ and validator command are the reproducibility anchors. The pair is not yet
 installed on the reference phone because its userspace remains wedged in the
 previously documented recovery state. Physical preview-frame-rate, photo,
 video, display and rollback acceptance remain open.
+
+## Video finalization guard checkpoint
+
+- Date: 2026-08-26
+- Source commit: the commit containing this checkpoint and the video guard
+- Change: serialize the stop transition through `video-done` and reject invalid
+  recording outputs before gallery insertion
+
+The shutter remains disabled after the user requests stop until camerabin has
+finished finalization and emitted `video-done`. This prevents a second shutter
+press from racing the muxer's EOS/finalization path. The completion handler
+re-enables the shutter for both successful and failed recordings, adds only a
+regular non-empty file to the gallery, and shows a failure toast otherwise.
+
+The pinned GTK CI container passed formatting and the locked full workspace
+suite after this change:
+
+```text
+cargo fmt --all -- --check
+CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
+  cargo test --locked --all-targets --all-features --workspace
+4 Advanced Snapshot tests passed
+8 Aperture tests passed
+```
+
+This closes the source-level duplicate-stop and empty-output hazards. A
+physical test must still confirm a playable file, monotonic duration, stable
+preview during recording, clean stop and recovery from an encoder failure on
+the OnePlus 6T.

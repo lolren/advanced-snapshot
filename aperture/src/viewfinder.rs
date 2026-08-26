@@ -1240,8 +1240,24 @@ impl Viewfinder {
 
         if let Some(path) = self.imp().is_recording_video.take() {
             self.notify_is_recording();
-            let file = gio::File::for_path(path);
-            self.emit_recording_done(Some(&file));
+            match std::fs::metadata(&path) {
+                Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
+                    let file = gio::File::for_path(path);
+                    self.emit_recording_done(Some(&file));
+                }
+                Ok(metadata) => {
+                    log::error!(
+                        "Video pipeline produced an invalid output: file={} size={}",
+                        metadata.is_file(),
+                        metadata.len()
+                    );
+                    self.emit_recording_done(None);
+                }
+                Err(err) => {
+                    log::error!("Video pipeline output is unavailable: {err}");
+                    self.emit_recording_done(None);
+                }
+            }
         }
     }
 

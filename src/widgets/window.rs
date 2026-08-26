@@ -397,12 +397,8 @@ impl Window {
         if matches!(self.capture_mode(), CaptureMode::Video) {
             if imp.camera.is_recording_active() {
                 // disable the button while the video is ending
-                //
-                // TODO This is prone to errors, create start/stop_decoding functions
-                // that do the correct thing.
                 self.set_shutter_enabled(false);
                 imp.camera.stop_recording();
-                self.set_shutter_enabled(true);
             } else {
                 imp.camera.start_recording().await?;
             }

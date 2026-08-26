@@ -120,9 +120,12 @@ coalescing camera writes into a bounded, latest-value-wins 33 ms scheduler and
 flushes the exact final value on gesture end, cancellation and capture. An
 automated device trace now records intermediate 1.0x, 1.5x, 1.9x and 2.7x
 states before the exact 3.0x endpoint. Physical r4 visual acceptance, saved
-photos, preview latency and video remain separate gates. The next application
-work is on-phone preview-latency acceptance, followed by resolution/aspect
-selection and more robust video status.
+photos, preview latency and video remain separate gates. Video finalization now
+keeps the shutter disabled until camerabin emits `video-done`, rejects empty or
+non-file outputs before gallery insertion, and reports a failed save to the
+user. The remaining video gate is a playable-file test on the recovered phone;
+the next application work is on-phone preview-latency acceptance, followed by
+resolution/aspect selection.
 
 Commit `fed2784` adds a one-buffer, downstream-leaky queue to every preview
 branch so slow conversion or composition drops stale frames instead of

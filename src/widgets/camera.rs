@@ -648,11 +648,22 @@ impl Camera {
         imp.viewfinder.connect_recording_done(glib::clone!(
             #[weak]
             gallery,
+            #[weak(rename_to = obj)]
+            self,
             move |_, file| {
+                if let Some(window) = obj.root().and_downcast::<crate::Window>() {
+                    // Re-enable only after camerabin has emitted video-done.
+                    // This prevents a second shutter press from racing the
+                    // muxer's finalization and stop-capture transition.
+                    window.set_shutter_enabled(true);
+                }
                 if let Some(file) = file {
                     gallery.add_video(file);
                 } else {
                     log::error!("Didn't find any file when recording finished!");
+                    if let Some(window) = obj.root().and_downcast::<crate::Window>() {
+                        window.send_toast(&gettext("Could not save video"));
+                    }
                 }
             }
         ));
