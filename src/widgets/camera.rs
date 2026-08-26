@@ -355,7 +355,7 @@ mod imp {
                     }
                 ));
             }
-            self.update_manual_exposure_controls();
+            obj.update_manual_exposure_controls();
             self.zoom_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
