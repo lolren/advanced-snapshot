@@ -33,17 +33,12 @@ enum StateChangeState {
     NotDone,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum FocusIndicatorState {
+    #[default]
     Scanning,
     Focused,
     Failed,
-}
-
-impl Default for FocusIndicatorState {
-    fn default() -> Self {
-        Self::Scanning
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1831,7 +1826,11 @@ impl Viewfinder {
 
 fn clamp_zoom(zoom: f64, max_zoom: f64) -> f64 {
     let upper = if max_zoom.is_finite() {
-        max_zoom.min(4.0).max(1.0)
+        if max_zoom < 1.0 {
+            1.0
+        } else {
+            max_zoom.min(4.0)
+        }
     } else {
         1.0
     };

@@ -21,15 +21,19 @@ camera stack” must always agree.
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
 | Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
-| HDR | Hidden/unavailable | Multi-exposure capture, alignment, merge and tone map | Not implemented |
+| HDR | Opt-in Software HDR switch; captures dark, normal and bright JPEGs and adds one merged output to the gallery | Three still requests, standard ExposureValue control, GdkPixbuf JPEG decode/encode and the bounded `advanced-snapshot-hdr` helper | Three same-sized frames are merged in linear light, clipped samples are down-weighted, output is atomically installed, temporary frames are cleaned up; motion-alignment and vendor-ISP parity remain explicitly out of scope |
 | Vendor ISO calibration | No vendor-specific ISO label; manual analogue gain is exposed in linear units | Sensor gain model and a client-side ISO mapping would be required | Not implemented; the gain control remains honest and bounded |
 | Hardware flash pulse | Opt-in rear-camera switch; starts a bounded `pmos-camera-flash` pulse and stops it safely on capture failure, camera switch or page teardown | Executable helper with writable `*:flash` LED channels; helper saves/restores values, caps duration at 5 seconds and handles interruption | Verify rear LEDs illuminate for the requested capture and return to their prior values; front camera must never pulse |
 
-The manual shutter/gain control is deliberately narrower than Android's
-vendor-specific exposure UI: it exposes sensor time and linear gain, not a
-calibrated ISO number. The hardware-flash control is deliberately narrower than
+Software HDR is deliberately narrower than Android's vendor HDR mode: it uses
+three rapid exposure-bracketed JPEGs and a global tone map, has no motion
+alignment or local tone mapping, and disables manual exposure and the hardware
+flash for the sequence. It is an opt-in feature and does not claim calibrated
+vendor image quality. The manual shutter/gain control is deliberately narrower
+than Android's vendor-specific exposure UI: it exposes sensor time and linear
+gain, not a calibrated ISO number. The hardware-flash control is deliberately narrower than
 Android's automatic flash mode. It does not meter the scene, merge HDR frames,
-or promise vendor camera image quality. The switch is off by default and is
+or promise vendor camera image quality. The flash switch is off by default and is
 enabled only when the current camera is a rear camera and the helper executable
 is installed. The OnePlus 6T package uses a 2.5-second pulse at level 32; the
 helper halves the requested level for the yellow LED channel and restores both

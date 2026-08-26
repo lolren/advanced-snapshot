@@ -96,6 +96,10 @@ cargo_env.set(
   'ADVANCED_SNAPSHOT_FLASH_HELPER',
   sbindir / 'pmos-camera-flash',
 )
+cargo_env.set(
+  'ADVANCED_SNAPSHOT_HDR_HELPER',
+  libexecdir / 'advanced-snapshot-hdr',
+)
 
 meson.add_devenv(cargo_env)
 

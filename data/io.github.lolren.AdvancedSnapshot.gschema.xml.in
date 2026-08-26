@@ -49,6 +49,11 @@
       <summary>Use hardware flash</summary>
       <description>Whether to pulse the phone's camera flash LEDs for photos</description>
     </key>
+    <key name="hdr-capture" type="b">
+      <default>false</default>
+      <summary>Use software HDR</summary>
+      <description>Whether to capture and merge three exposure-bracketed JPEGs</description>
+    </key>
     <key name="countdown" type="i">
       <default>0</default>
       <summary>Countdown timer</summary>

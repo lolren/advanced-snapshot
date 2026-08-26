@@ -58,3 +58,22 @@ cargo_build = custom_target(
     'cp', cargo_target / rust_target / meson.project_name(), '@OUTPUT@',
   ]
 )
+
+cargo_build_hdr = custom_target(
+  'cargo-build-hdr',
+  build_by_default: true,
+  build_always_stale: true,
+  output: 'advanced-snapshot-hdr',
+  console: true,
+  env: cargo_env,
+  command: [
+    cargo,
+    'build',
+    cargo_build_options,
+    '--bin', 'advanced-snapshot-hdr',
+    '&&',
+    'cp', cargo_target / rust_target / 'advanced-snapshot-hdr', '@OUTPUT@',
+  ],
+  install: true,
+  install_dir: libexecdir,
+)

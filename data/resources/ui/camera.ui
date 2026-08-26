@@ -751,6 +751,18 @@
                                     </child>
                                   </object>
                                 </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Software HDR</property>
+                                    <property name="subtitle" translatable="yes">Capture dark, normal and bright frames, then merge them</property>
+                                    <child>
+                                      <object class="GtkSwitch" id="hdr_switch">
+                                        <property name="valign">center</property>
+                                        <property name="tooltip-text" translatable="yes">Merge three exposure-bracketed frames into one JPEG</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>
@@ -764,7 +776,7 @@
                             </child>
                             <child>
                               <object class="GtkLabel">
-                                <property name="label" translatable="yes">HDR is unavailable until the camera pipeline supports multi-frame capture.</property>
+                                <property name="label" translatable="yes">Software HDR uses three rapid exposures. Moving subjects may show ghosting; hardware flash and manual exposure are disabled during the sequence.</property>
                                 <property name="wrap">True</property>
                                 <property name="justify">center</property>
                                 <style>

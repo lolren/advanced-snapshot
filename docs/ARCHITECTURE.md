@@ -38,6 +38,26 @@ and uses red for `failed` or an infrastructure error. A new tap terminates the
 previous helper and generation checks suppress every stale callback. The
 fixed-focus front camera publishes no AF state and receives no focus gesture.
 
+## Software HDR
+
+When the opt-in HDR setting is enabled and automatic exposure is active, the
+GTK process reserves three hidden JPEG paths and requests them sequentially at
+the current EV preference plus `-1`, `0` and `+1` stops (clamped to the
+supported `-1..+1` control range). Controls and the shutter are disabled during
+the sequence. The completed paths are passed to the separate
+`advanced-snapshot-hdr` helper so JPEG decoding and the bounded merge do not
+block the GTK main loop. The helper linearizes sRGB samples, weights
+well-exposed/non-clipped samples, applies a global Reinhard tone map and writes
+the result to a temporary file before an atomic rename. The app restores the
+user's normal image controls and deletes all intermediate files on success,
+capture failure, helper failure or stream teardown.
+
+This is an open exposure-fusion baseline, not a proprietary Android ISP:
+frames are not geometrically aligned, so moving subjects can ghost, and output
+metadata/EXIF is not preserved by the GdkPixbuf JPEG re-encode. The explicit
+limits and honest UI text keep those constraints visible until a future
+alignment/tone-mapping implementation is independently validated.
+
 ## Manual exposure
 
 The Image Controls sheet keeps automatic exposure enabled by default. When the

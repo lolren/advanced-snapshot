@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::os::unix::io::OwnedFd;
 use std::path::Path;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use adw::prelude::*;
@@ -27,6 +29,21 @@ const FLASH_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FLASH_HELPER") {
 };
 const FLASH_DURATION_MS: &str = "2500";
 const FLASH_LEVEL: &str = "32";
+const HDR_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_HDR_HELPER") {
+    Some(path) => path,
+    None => "advanced-snapshot-hdr",
+};
+const HDR_SETTLE_TIME: Duration = Duration::from_millis(220);
+const HDR_EXPOSURE_OFFSETS: [f64; 3] = [-1.0, 0.0, 1.0];
+
+#[derive(Debug)]
+pub(super) struct HdrCapture {
+    output: PathBuf,
+    inputs: Vec<PathBuf>,
+    exposures: [f64; 3],
+    next_index: usize,
+    completed: Vec<PathBuf>,
+}
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -53,6 +70,9 @@ mod imp {
         pub manual_exposure_handler: RefCell<Option<glib::source::SourceId>>,
         pub flash_generation: Cell<u64>,
         pub flash_process: RefCell<Option<gio::Subprocess>>,
+        pub hdr_generation: Cell<u64>,
+        pub(super) hdr_capture: RefCell<Option<HdrCapture>>,
+        pub hdr_process: RefCell<Option<gio::Subprocess>>,
         pub pinch_zoom_start: Cell<f64>,
         pub pinch_zoom_active: Cell<bool>,
         pub pending_pinch_zoom: Cell<Option<f64>>,
@@ -116,6 +136,8 @@ mod imp {
         pub reset_image_controls: TemplateChild<gtk::Button>,
         #[template_child]
         pub flash_switch: TemplateChild<gtk::Switch>,
+        #[template_child]
+        pub hdr_switch: TemplateChild<gtk::Switch>,
     }
 
     #[glib::object_subclass]
@@ -443,7 +465,12 @@ mod imp {
                 .bind("hardware-flash", &*self.flash_switch, "active")
                 .build();
 
+            self.settings()
+                .bind("hdr-capture", &*self.hdr_switch, "active")
+                .build();
+
             obj.update_flash_availability();
+            obj.update_hdr_availability();
 
             self.settings()
                 .bind("capture-mode", &*obj, "capture-mode")
@@ -596,6 +623,11 @@ impl Camera {
     pub async fn take_picture(&self, format: crate::PictureFormat) -> anyhow::Result<()> {
         let imp = self.imp();
         self.flush_pending_zoom();
+
+        if imp.settings().boolean("hdr-capture") {
+            return self.start_hdr_capture(format).await;
+        }
+
         let window = self.root().and_downcast::<crate::Window>().unwrap();
 
         // We enable the shutter whenever picture-stored is emitted.
@@ -628,6 +660,87 @@ impl Camera {
         Ok(())
     }
 
+    async fn start_hdr_capture(&self, format: crate::PictureFormat) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            matches!(format, crate::PictureFormat::Jpeg),
+            "software HDR currently writes JPEG output only"
+        );
+        anyhow::ensure!(
+            hdr_helper_available(),
+            "the advanced-snapshot-hdr helper is not installed"
+        );
+        anyhow::ensure!(
+            self.imp().auto_exposure_switch.is_active(),
+            "software HDR requires automatic exposure"
+        );
+        anyhow::ensure!(
+            self.imp().hdr_capture.borrow().is_none(),
+            "an HDR capture is already in progress"
+        );
+
+        let window = self.root().and_downcast::<crate::Window>().unwrap();
+        let pictures_dir = utils::pictures_dir()?;
+        let output = pictures_dir.join(utils::picture_file_name(format));
+        let token = format!("{}-{}", std::process::id(), glib::random_int());
+        let inputs = (0..HDR_EXPOSURE_OFFSETS.len())
+            .map(|index| pictures_dir.join(format!(".advanced-snapshot-hdr-{token}-{index}.jpg")))
+            .collect::<Vec<_>>();
+        let base_exposure = self.imp().exposure_scale.value().clamp(-1.0, 1.0);
+
+        self.imp().hdr_capture.replace(Some(HdrCapture {
+            output,
+            inputs,
+            exposures: hdr_exposure_values(base_exposure),
+            next_index: 0,
+            completed: Vec::new(),
+        }));
+        self.set_hdr_controls_sensitive(false);
+        window.set_shutter_enabled(false);
+
+        if let Err(error) = self.capture_next_hdr_frame().await {
+            self.abort_hdr_capture(Some(&error.to_string()));
+            return Err(error);
+        }
+
+        self.imp().flash_bin.flash();
+        if self.imp().settings().boolean("play-shutter-sound") {
+            self.play_shutter_sound();
+        }
+
+        Ok(())
+    }
+
+    async fn capture_next_hdr_frame(&self) -> anyhow::Result<()> {
+        let (path, exposure) = {
+            let mut capture = self.imp().hdr_capture.borrow_mut();
+            let Some(capture) = capture.as_mut() else {
+                anyhow::bail!("HDR capture state disappeared");
+            };
+            let index = capture.next_index;
+            anyhow::ensure!(
+                index < capture.inputs.len() && index < capture.exposures.len(),
+                "HDR capture sequence exceeded its frame limit"
+            );
+            capture.next_index += 1;
+            (capture.inputs[index].clone(), capture.exposures[index])
+        };
+
+        self.apply_hdr_exposure(exposure);
+        glib::timeout_future(HDR_SETTLE_TIME).await;
+        self.imp().viewfinder.take_picture(&path)?;
+        Ok(())
+    }
+
+    fn apply_hdr_exposure(&self, exposure: f64) {
+        let imp = self.imp();
+        imp.viewfinder.set_image_adjustments(
+            exposure.clamp(-1.0, 1.0),
+            imp.saturation_scale.value(),
+            imp.contrast_scale.value(),
+            imp.sharpness_scale.value(),
+        );
+    }
+
     fn camera_switched(&self) {
         self.stop_hardware_flash();
         let provider = self.imp().provider.get().unwrap();
@@ -645,6 +758,8 @@ impl Camera {
 
     fn set_camera_inner(&self, camera: Option<aperture::Camera>) {
         let imp = self.imp();
+
+        self.abort_hdr_capture(None);
 
         if let Some(ref camera) = camera {
             let id = id_from_pw(camera);
@@ -714,6 +829,10 @@ impl Camera {
             #[weak(rename_to = obj)]
             self,
             move |_, file| {
+                if obj.imp().hdr_capture.borrow().is_some() {
+                    obj.handle_hdr_picture_done(gallery.clone(), file);
+                    return;
+                }
                 obj.stop_hardware_flash();
                 let window = obj.root().and_downcast::<crate::Window>().unwrap();
                 window.set_shutter_enabled(true);
@@ -752,6 +871,7 @@ impl Camera {
 
     pub fn stop_stream(&self) {
         self.stop_hardware_flash();
+        self.abort_hdr_capture(None);
         self.clear_manual_exposure_state();
         self.imp().viewfinder.stop_stream();
     }
@@ -943,6 +1063,211 @@ impl Camera {
             .is_some_and(|camera| matches!(camera.location(), aperture::CameraLocation::Back));
         imp.flash_switch
             .set_sensitive(rear_camera && flash_helper_available());
+    }
+
+    fn update_hdr_availability(&self) {
+        self.imp().hdr_switch.set_sensitive(hdr_helper_available());
+    }
+
+    fn set_hdr_controls_sensitive(&self, sensitive: bool) {
+        let imp = self.imp();
+        let controls: [&gtk::Widget; 12] = [
+            imp.exposure_scale.upcast_ref(),
+            imp.auto_exposure_switch.upcast_ref(),
+            imp.shutter_scale.upcast_ref(),
+            imp.gain_scale.upcast_ref(),
+            imp.saturation_scale.upcast_ref(),
+            imp.contrast_scale.upcast_ref(),
+            imp.sharpness_scale.upcast_ref(),
+            imp.zoom_scale.upcast_ref(),
+            imp.zoom_reset_button.upcast_ref(),
+            imp.reset_image_controls.upcast_ref(),
+            imp.flash_switch.upcast_ref(),
+            imp.hdr_switch.upcast_ref(),
+        ];
+        for control in controls {
+            control.set_sensitive(sensitive);
+        }
+        if sensitive {
+            self.update_manual_exposure_controls();
+            self.update_flash_availability();
+            self.update_hdr_availability();
+        }
+    }
+
+    fn handle_hdr_picture_done(&self, gallery: crate::Gallery, file: Option<&gio::File>) {
+        let Some(path) = file.and_then(|file| file.path()) else {
+            self.abort_hdr_capture(Some("the camera did not return a valid HDR frame"));
+            return;
+        };
+
+        let capture_more = {
+            let mut state = self.imp().hdr_capture.borrow_mut();
+            let Some(state) = state.as_mut() else {
+                return;
+            };
+            state.completed.push(path);
+            state.completed.len() < HDR_EXPOSURE_OFFSETS.len()
+        };
+
+        if capture_more {
+            glib::spawn_future_local(glib::clone!(
+                #[weak(rename_to = obj)]
+                self,
+                async move {
+                    if let Err(error) = obj.capture_next_hdr_frame().await {
+                        obj.abort_hdr_capture(Some(&error.to_string()));
+                    }
+                }
+            ));
+        } else if let Some(capture) = self.imp().hdr_capture.take() {
+            self.finish_hdr_capture(gallery, capture);
+        }
+    }
+
+    fn finish_hdr_capture(&self, gallery: crate::Gallery, capture: HdrCapture) {
+        let output = capture.output.clone();
+        let inputs = capture.completed.clone();
+        let cleanup_inputs = inputs.clone();
+        self.imp().hdr_capture.replace(Some(HdrCapture {
+            output: output.clone(),
+            inputs: cleanup_inputs,
+            exposures: capture.exposures,
+            next_index: capture.next_index,
+            completed: inputs.clone(),
+        }));
+        self.apply_image_adjustments();
+
+        let mut arguments = vec![OsString::from("--output"), output.clone().into_os_string()];
+        for input in &inputs {
+            arguments.push(OsString::from("--input"));
+            arguments.push(input.clone().into_os_string());
+        }
+        let argument_refs = arguments
+            .iter()
+            .map(OsString::as_os_str)
+            .collect::<Vec<_>>();
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&argument_refs) {
+            Ok(process) => process,
+            Err(error) => {
+                self.imp().hdr_capture.take();
+                self.cleanup_hdr_files(&inputs);
+                self.cleanup_hdr_output(&output);
+                self.finish_hdr_ui(false, &format!("could not start HDR merge: {error}"));
+                return;
+            }
+        };
+
+        let imp = self.imp();
+        let generation = imp.hdr_generation.get().wrapping_add(1);
+        imp.hdr_generation.set(generation);
+        imp.hdr_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            #[strong]
+            gallery,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = obj.imp();
+                if imp.hdr_generation.get() != generation {
+                    return;
+                }
+                imp.hdr_process.take();
+                imp.hdr_capture.take();
+                obj.cleanup_hdr_files(&inputs);
+                obj.set_hdr_controls_sensitive(true);
+                if let Err(error) = result {
+                    obj.cleanup_hdr_output(&output);
+                    obj.finish_hdr_ui(false, &format!("HDR merge failed: {error}"));
+                    return;
+                }
+
+                match std::fs::metadata(&output) {
+                    Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
+                        gallery.add_image(&gio::File::for_path(output));
+                        obj.finish_hdr_ui(true, "");
+                    }
+                    _ => obj.finish_hdr_ui(false, "HDR merge produced no photo"),
+                }
+            }
+        ));
+    }
+
+    fn abort_hdr_capture(&self, reason: Option<&str>) {
+        let imp = self.imp();
+        if imp.hdr_capture.borrow().is_none() && imp.hdr_process.borrow().is_none() {
+            return;
+        }
+        imp.hdr_generation
+            .set(imp.hdr_generation.get().wrapping_add(1));
+        if let Some(process) = imp.hdr_process.take()
+            && !process.has_exited()
+        {
+            process.force_exit();
+        }
+        let (inputs, output) = imp
+            .hdr_capture
+            .take()
+            .map(|capture| (capture.inputs, Some(capture.output)))
+            .unwrap_or_default();
+        self.cleanup_hdr_files(&inputs);
+        if let Some(output) = output {
+            self.cleanup_hdr_output(&output);
+        }
+        self.set_hdr_controls_sensitive(true);
+        self.apply_image_adjustments();
+        if let Some(window) = self.root().and_downcast::<crate::Window>() {
+            window.set_shutter_enabled(true);
+            if let Some(reason) = reason {
+                window.send_toast(&gettext(reason));
+            }
+        }
+    }
+
+    fn finish_hdr_ui(&self, success: bool, message: &str) {
+        self.set_hdr_controls_sensitive(true);
+        if let Some(window) = self.root().and_downcast::<crate::Window>() {
+            window.set_shutter_enabled(true);
+            if !success && !message.is_empty() {
+                window.send_toast(&gettext(message));
+            }
+        }
+    }
+
+    fn cleanup_hdr_files(&self, paths: &[PathBuf]) {
+        for path in paths {
+            if let Err(error) = std::fs::remove_file(path)
+                && error.kind() != std::io::ErrorKind::NotFound
+            {
+                log::debug!(
+                    "Could not remove HDR temporary frame {}: {error}",
+                    path.display()
+                );
+            }
+        }
+    }
+
+    fn cleanup_hdr_output(&self, path: &Path) {
+        let Some(file_name) = path.file_name() else {
+            return;
+        };
+        if let Err(error) = std::fs::remove_file(path)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            log::debug!("Could not remove HDR output {}: {error}", path.display());
+        }
+        let temporary = path.with_file_name(format!(".{}.tmp", file_name.to_string_lossy()));
+        if let Err(error) = std::fs::remove_file(&temporary)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            log::debug!(
+                "Could not remove HDR temporary output {}: {error}",
+                temporary.display()
+            );
+        }
     }
 
     fn start_hardware_flash(&self) -> bool {
@@ -1182,9 +1507,32 @@ fn flash_helper_available() -> bool {
     }
 }
 
+fn hdr_helper_available() -> bool {
+    if HDR_HELPER.contains('/') {
+        Path::new(HDR_HELPER).is_file()
+    } else {
+        glib::find_program_in_path(HDR_HELPER).is_some()
+    }
+}
+
+fn hdr_exposure_values(base: f64) -> [f64; 3] {
+    let base = base.clamp(-1.0, 1.0);
+    let low = (base + HDR_EXPOSURE_OFFSETS[0]).clamp(-1.0, 1.0);
+    let high = (base + HDR_EXPOSURE_OFFSETS[2]).clamp(-1.0, 1.0);
+
+    // At either UI endpoint clamping would collapse two brackets. Preserve a
+    // useful three-stop sequence in that case and restore the user's EV after
+    // the sequence has completed.
+    if low >= base || high <= base || high - low < 0.75 {
+        [-1.0, 0.0, 1.0]
+    } else {
+        [low, base, high]
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{format_zoom_label, image_control_defaults, pinch_zoom_value};
+    use super::{format_zoom_label, hdr_exposure_values, image_control_defaults, pinch_zoom_value};
 
     #[test]
     fn sensor_defaults_are_selected_for_all_phone_cameras() {
@@ -1221,5 +1569,17 @@ mod tests {
     fn zoom_label_uses_one_decimal_and_multiplication_sign() {
         assert_eq!(format_zoom_label(1.0), "1.0×");
         assert_eq!(format_zoom_label(2.34), "2.3×");
+    }
+
+    #[test]
+    fn hdr_brackets_are_symmetric_around_the_requested_ev() {
+        assert_eq!(hdr_exposure_values(0.0), [-1.0, 0.0, 1.0]);
+        assert_eq!(hdr_exposure_values(0.25), [-0.75, 0.25, 1.0]);
+    }
+
+    #[test]
+    fn hdr_brackets_do_not_collapse_at_ev_endpoints() {
+        assert_eq!(hdr_exposure_values(-1.0), [-1.0, 0.0, 1.0]);
+        assert_eq!(hdr_exposure_values(1.0), [-1.0, 0.0, 1.0]);
     }
 }

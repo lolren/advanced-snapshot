@@ -15,7 +15,8 @@ DESTDIR="$PWD/stage" meson install -C build
 
 Inspect the staging tree before packaging. It must contain
 `/usr/bin/advanced-snapshot`,
-`/usr/libexec/advanced-snapshot-focus-control`, the independent D-Bus service,
+`/usr/libexec/advanced-snapshot-focus-control`,
+`/usr/libexec/advanced-snapshot-hdr`, the independent D-Bus service,
 GSettings schema, metainfo, resources and icons under the
 `io.github.lolren.AdvancedSnapshot` name. It must not contain or overwrite
 `org.gnome.Snapshot` paths.
@@ -31,6 +32,12 @@ pmos-camera-flash --status
 
 The status command is read-only. A report with no writable `*:flash` channels
 keeps the switch disabled; it does not modify LED state.
+
+The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
+is off by default and requires automatic exposure. It creates three hidden
+temporary JPEGs, merges them, atomically installs the final JPEG and removes
+the temporary files. Keep the phone still; moving subjects may ghost because
+the open implementation does not yet perform frame alignment.
 
 ## Build the postmarketOS package
 
