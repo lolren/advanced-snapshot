@@ -1,5 +1,22 @@
 # Validation record
 
+## 0.1.0 capture-output and zoom-safety checkpoint
+
+- Date: 2026-08-26
+- Source changes: still completion now validates a local, non-empty regular
+  file before emitting `picture-done`; Camerabin zoom limits are normalized so
+  a sub-1, non-finite or otherwise unusable `max-zoom` cannot make the clamp
+  panic.
+- Host verification: the pinned GTK build environment passed `cargo fmt
+  --all -- --check` and all 6 application plus 9 Aperture unit tests.
+- Device status: not installed or visually accepted; the reference phone's
+  userspace transport is currently unavailable.
+
+The still-output check closes a correctness hole in the inherited
+`image-done` path: a missing or empty file is now reported as a failed capture
+and cannot be added to the gallery. The zoom test covers zero, NaN and finite
+camera limits while preserving the existing 1x–4x UI contract.
+
 ## 0.1.0 packaging checkpoint
 
 - Date: 2026-08-25

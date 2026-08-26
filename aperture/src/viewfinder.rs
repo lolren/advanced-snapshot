@@ -946,7 +946,7 @@ impl Viewfinder {
     pub fn set_zoom(&self, zoom: f64) {
         let camerabin = self.imp().camerabin();
         let max_zoom = camerabin.property::<f32>("max-zoom") as f64;
-        camerabin.set_property("zoom", zoom.clamp(1.0, max_zoom.min(4.0)) as f32);
+        camerabin.set_property("zoom", clamp_zoom(zoom, max_zoom) as f32);
     }
 
     fn draw_focus_indicator(&self, context: &gtk::cairo::Context, width: i32, height: i32) {
@@ -1232,7 +1232,29 @@ impl Viewfinder {
     fn on_image_done(&self, file: &gio::File) {
         self.imp().is_taking_picture.set(false);
 
-        self.emit_picture_done(Some(file));
+        let Some(path) = file.path() else {
+            log::error!("Still capture returned a non-local output file");
+            self.emit_picture_done(None);
+            return;
+        };
+
+        match std::fs::metadata(&path) {
+            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
+                self.emit_picture_done(Some(file));
+            }
+            Ok(metadata) => {
+                log::error!(
+                    "Still capture produced an invalid output: file={} size={}",
+                    metadata.is_file(),
+                    metadata.len()
+                );
+                self.emit_picture_done(None);
+            }
+            Err(err) => {
+                log::error!("Still capture output is unavailable: {err}");
+                self.emit_picture_done(None);
+            }
+        }
     }
 
     fn on_video_done(&self) {
@@ -1665,6 +1687,20 @@ impl Viewfinder {
     }
 }
 
+fn clamp_zoom(zoom: f64, max_zoom: f64) -> f64 {
+    let upper = if max_zoom.is_finite() {
+        max_zoom.min(4.0).max(1.0)
+    } else {
+        1.0
+    };
+
+    if zoom.is_finite() {
+        zoom.clamp(1.0, upper)
+    } else {
+        1.0
+    }
+}
+
 fn create_qrcode_bin() -> Result<gst::Element, glib::BoolError> {
     let bin = gst::Bin::new();
 
@@ -1713,7 +1749,7 @@ fn create_qrcode_bin() -> Result<gst::Element, glib::BoolError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{FocusResult, parse_focus_result};
+    use super::{FocusResult, clamp_zoom, parse_focus_result};
 
     #[test]
     fn parses_truthful_focus_results() {
@@ -1726,5 +1762,13 @@ mod tests {
         assert_eq!(parse_focus_result(""), None);
         assert_eq!(parse_focus_result("scanning"), None);
         assert_eq!(parse_focus_result("focused\nfailed"), None);
+    }
+
+    #[test]
+    fn keeps_zoom_clamp_valid_for_unusable_camera_limits() {
+        assert_eq!(clamp_zoom(2.0, 0.0), 1.0);
+        assert_eq!(clamp_zoom(2.0, f64::NAN), 1.0);
+        assert_eq!(clamp_zoom(f64::NAN, 4.0), 1.0);
+        assert_eq!(clamp_zoom(5.0, 3.0), 3.0);
     }
 }

@@ -94,7 +94,10 @@ mod imp {
                         obj.set_margin_top(12);
                         obj.set_margin_bottom(12);
                     }
-                    _ => todo!(),
+                    // Orientation is currently a two-value GTK enum. Keep
+                    // the fallback harmless if a future GTK release adds a
+                    // value or an invalid value arrives over the FFI.
+                    _ => (),
                 }
             });
         }

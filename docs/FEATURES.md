@@ -7,6 +7,7 @@ camera stack” must always agree.
 | Capability | Application | PipeWire/libcamera requirement | Acceptance |
 | --- | --- | --- | --- |
 | Photo capture | Inherited Snapshot flow with full-frame mode selection | A negotiated RGB/YUV still stream | Decodable saved image at selected caps |
+| Capture output validation | Treats a still as complete only when camerabin returns a local, non-empty regular file; failed or empty saves reach the error path instead of the gallery | A local filesystem output from the capture pipeline | Empty, missing and non-local still outputs are rejected; valid files are emitted once |
 | Preview quality and latency | Restricts the live pipeline to a selected supported 720p-class mode before using a ratio-checked 1080p fallback; still capture remains independently bounded at 2048x1536. Each preview branch keeps one buffer, drops old buffers downstream when the consumer falls behind, and the live sink does not wait for an already-late clock timestamp | Preview caps containing a suitable 640x480–1280x720 mode; GStreamer `queue` and sink QoS | When concrete modes are advertised, the negotiated preview contains only the selected mode and is no taller than 720 pixels; the viewfinder remains near the newest camera timestamp under load |
 | Video capture | Inherited recording flow, timer and duration indicator; shutter and page lifecycle remain gated until `video-done`, and invalid empty outputs are rejected before gallery insertion | Working encoder/muxer and stable preview | Playable file, monotonic duration, clean stop, no duplicate stop request during finalization or page navigation |
 | Tap-to-focus | Preview gesture, oriented crop mapping and an amber/green/red result reticle | `AfMode`, `AfMetering`, `AfWindows`, `AfTrigger` plus generation-correlated `AfState` transport | Rear lens moves; green is shown only for `Focused`, red for `Failed`/transport error |
@@ -17,7 +18,7 @@ camera stack” must always agree.
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
-| Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree |
+| Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
 | HDR | Hidden/unavailable | Multi-exposure capture, alignment, merge and tone map | Not implemented |
 | Manual shutter/ISO | Hidden/unavailable | Advertised controls with valid units and metadata | Not implemented |
@@ -31,7 +32,8 @@ success. Visual reticle, saved-photo, preview-latency and video acceptance remai
 tests.
 
 Four pure application tests cover gesture scaling, lower/upper clamping,
-invalid gesture values and the displayed value format; the complete r4 source
+invalid gesture values and the displayed value format; Aperture additionally
+covers unusable camera zoom limits. The complete r4 source
 passed a clean AArch64 release build and all six Aperture tests. Physical r2
 testing exposed a touch-arbitration defect: the full-size controls overlay was
 picked above the viewfinder, so a gesture controller on the viewfinder never
