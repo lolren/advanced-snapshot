@@ -493,7 +493,7 @@ the OnePlus 6T.
 ## Video page-lifecycle checkpoint
 
 - Date: 2026-08-26
-- Source commit: the commit containing this checkpoint and the page-lifecycle guard
+- Source commit: `aa791ecac4cf220e64fef0d77d12bb85afaa84b4`
 - Change: defer camera-stream shutdown when the camera page hides during a
   recording, and defer stream restart when the page returns before
   `video-done`
