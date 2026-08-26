@@ -622,3 +622,25 @@ public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
 The signed pair is source/package validated but not installed or hardware-
 accepted. The reference phone still exposes CDC-NCM without an SSH banner, so
 live LED, preview, capture and rollback acceptance remain open.
+
+## Advanced Snapshot r12 manual-exposure source checkpoint
+
+- Date: 2026-08-26
+- Source commit: `0a14b55983493ba04bfb2a046df8b167158af53c`
+- Recipe revision: `advanced-snapshot-0.1.0-r12`
+- GitHub source archive SHA-512:
+  `e53da5e0975bd1cc57f47c560ea6509eee3c813ee832695d6fb0574368a4dc801cd4c15a9fbcc11c78c703103a2cca39e48c7b73baf7374a2a3692438acdbf2d`
+
+The application now exposes an automatic-exposure switch, manual shutter time
+and linear analogue gain in Image Controls. Slider changes are debounced and
+sent through dynamically discovered PipeWire controls; camera changes and
+stream teardown cancel stale helper processes. Automatic mode remains the
+default. The UI and helper are source-validated, but the controls require the
+matching libcamera r26 simple-IPA candidate to exist at runtime.
+
+`cargo fmt --all -- --check`, the C helper's strict syntax check and Cargo
+metadata validation pass. The full host Cargo build is currently unavailable
+because this workstation lacks the GTK/GLib/libadwaita development `.pc`
+files; the pinned GTK CI container and clean AArch64 package build remain the
+authoritative compile gates. No r12 APK has been built, installed or
+hardware-accepted, and the reference phone still has no usable SSH banner.

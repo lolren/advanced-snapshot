@@ -25,13 +25,15 @@ camera stack” must always agree.
 | Vendor ISO calibration | No vendor-specific ISO label; manual analogue gain is exposed in linear units | Sensor gain model and a client-side ISO mapping would be required | Not implemented; the gain control remains honest and bounded |
 | Hardware flash pulse | Opt-in rear-camera switch; starts a bounded `pmos-camera-flash` pulse and stops it safely on capture failure, camera switch or page teardown | Executable helper with writable `*:flash` LED channels; helper saves/restores values, caps duration at 5 seconds and handles interruption | Verify rear LEDs illuminate for the requested capture and return to their prior values; front camera must never pulse |
 
-The hardware-flash control is deliberately narrower than Android's automatic
-flash mode. It does not meter the scene, merge HDR frames, or promise vendor
-camera image quality. The switch is off by default and is enabled only when the
-current camera is a rear camera and the helper executable is installed. The
-OnePlus 6T package uses a 2.5-second pulse at level 32; the helper halves the
-requested level for the yellow LED channel and restores both channels after a
-normal or interrupted pulse.
+The manual shutter/gain control is deliberately narrower than Android's
+vendor-specific exposure UI: it exposes sensor time and linear gain, not a
+calibrated ISO number. The hardware-flash control is deliberately narrower than
+Android's automatic flash mode. It does not meter the scene, merge HDR frames,
+or promise vendor camera image quality. The switch is off by default and is
+enabled only when the current camera is a rear camera and the helper executable
+is installed. The OnePlus 6T package uses a 2.5-second pulse at level 32; the
+helper halves the requested level for the yellow LED channel and restores both
+channels after a normal or interrupted pulse.
 
 The installed OnePlus 6T r24/r7 stack and Advanced Snapshot r4 pass the
 non-image lower-layer, package-launch, generation-correlated autofocus and live
