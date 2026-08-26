@@ -108,6 +108,8 @@ mod imp {
         pub(super) focus_indicator_state: Cell<FocusIndicatorState>,
         pub focus_generation: Cell<u64>,
         pub focus_process: RefCell<Option<gio::Subprocess>>,
+        pub adjustment_generation: Cell<u64>,
+        pub adjustment_process: RefCell<Option<gio::Subprocess>>,
 
         pub picture: gtk::Picture,
         pub offload: gtk::GraphicsOffload,
@@ -142,6 +144,14 @@ mod imp {
             self.focus_indicator_state
                 .set(FocusIndicatorState::Scanning);
             self.focus_overlay.set_visible(false);
+        }
+
+        pub(super) fn clear_image_adjustment_state(&self) {
+            self.adjustment_generation
+                .set(self.adjustment_generation.get().wrapping_add(1));
+            if let Some(process) = self.adjustment_process.take() {
+                process.force_exit();
+            }
         }
 
         fn is_recording(&self) -> bool {
@@ -198,6 +208,7 @@ mod imp {
                 return;
             }
             self.clear_focus_state();
+            self.clear_image_adjustment_state();
 
             // We reset to READY if we landed on the ERROR state on the previous
             // camera.
@@ -492,6 +503,7 @@ mod imp {
 
         fn dispose(&self) {
             self.clear_focus_state();
+            self.clear_image_adjustment_state();
             if self.is_recording_video.borrow().is_some()
                 && let Err(err) = self.obj().stop_recording()
             {
@@ -536,6 +548,7 @@ mod imp {
 
         fn unrealize(&self) {
             log::debug!("Viewfinder unrealized: stopping stream");
+            self.clear_image_adjustment_state();
             self.obj().stop_stream();
 
             self.parent_unrealize();
@@ -911,6 +924,10 @@ impl Viewfinder {
             return;
         };
 
+        let imp = self.imp();
+        imp.clear_image_adjustment_state();
+        let generation = imp.adjustment_generation.get();
+
         let arguments = [
             serial.to_string(),
             format!("{:.4}", exposure.clamp(-1.0, 1.0)),
@@ -934,12 +951,23 @@ impl Viewfinder {
                 return;
             }
         };
+        imp.adjustment_process.replace(Some(process.clone()));
 
-        glib::spawn_future_local(async move {
-            if let Err(err) = process.wait_check_future().await {
-                log::debug!("Image adjustments were not applied: {err}");
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.adjustment_generation.get() != generation {
+                    return;
+                }
+                imp.adjustment_process.take();
+                if let Err(err) = result {
+                    log::debug!("Image adjustments were not applied: {err}");
+                }
             }
-        });
+        ));
     }
 
     /// Sets Camerabin's capture-wide digital zoom factor.
@@ -1197,6 +1225,7 @@ impl Viewfinder {
     ///
     /// A black frame will be shown after this methods has been called.
     pub fn stop_stream(&self) {
+        self.imp().clear_image_adjustment_state();
         if let Err(err) = self.imp().camerabin().set_state(gst::State::Null) {
             log::error!("Could not pause camerabin: {err}");
             self.imp().set_state(ViewfinderState::Error);
