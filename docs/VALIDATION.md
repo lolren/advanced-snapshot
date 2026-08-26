@@ -416,3 +416,47 @@ CARGO_TARGET_DIR=/tmp/advanced-cargo-target \
 This is a source-level performance fix. A matching AArch64 package still needs
 to be built and installed, followed by physical preview-frame-rate, photo,
 video and rollback checks on the recovered OnePlus 6T.
+
+## Strict preview-cap AArch64 package checkpoint
+
+- Date: 2026-08-26
+- Source commit: `3ac146f3768ec30fbf82f1a172725fefda5da733`
+- Target: postmarketOS edge, aarch64, musl
+- Source archive SHA-512:
+  `c1bc644cb84cd100162ba404248526a6ec6b7f59acb61e24f0c9966f36673aab02eabe3d19c97814acb87efac550f5bfb56b32ef22a7d0986ddb8604e71ba866`
+- Build tool: pmbootstrap 3.11.1 with the pinned GTK/GStreamer aarch64
+  buildroot
+
+The strict recipe build completed its `check()` phase with four Advanced
+Snapshot tests and eight Aperture tests passing. It then produced the matched
+release pair:
+
+```text
+advanced-snapshot-0.1.0-r6.apk
+advanced-snapshot-lang-0.1.0-r6.apk
+```
+
+The isolated build initially used pmbootstrap's temporary development key.
+For the validator fixture, the signature/control gzip member was separated
+from the unchanged data member and the copies were re-signed with the
+persistent development key `pmos@local-6a8b0868.rsa`; no payload or package
+metadata was changed. The complete repository validator then passed both
+signatures, the AArch64 ELF checks, the exact manifest, desktop/D-Bus,
+AppStream, GSettings, resource namespace, stale-identifier and Snapshot file
+ownership checks.
+
+The validated local fixture hashes are:
+
+- main APK SHA-256:
+  `d11286090ce5354a60303b701d45f7fd958b011292831a830a99ecb689cb3ad9`;
+- language APK SHA-256:
+  `f1596dd13c12c5daebfaa454defe7cda0afc5241195b217cb476791053de606d`;
+- public-key SHA-256:
+  `31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6`.
+
+These are local signed-artifact hashes; package signatures and build
+timestamps are expected to vary. The source commit, source SHA-512, recipe
+and validator command are the reproducibility anchors. The pair is not yet
+installed on the reference phone because its userspace remains wedged in the
+previously documented recovery state. Physical preview-frame-rate, photo,
+video, display and rollback acceptance remain open.
