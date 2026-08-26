@@ -38,6 +38,24 @@ and uses red for `failed` or an infrastructure error. A new tap terminates the
 previous helper and generation checks suppress every stale callback. The
 fixed-focus front camera publishes no AF state and receives no focus gesture.
 
+## Bounded rear flash
+
+The optional **Hardware flash** switch does not write LED sysfs files from the
+GTK process. On a rear-camera still request, Advanced Snapshot launches the
+`pmos-camera-flash --pulse` helper, waits briefly for the helper to arm the
+channels, and then submits the still request. The helper discovers top-level
+`*:flash` LED directories, records their current brightness, applies a capped
+pulse and restores the saved values on normal completion or `SIGINT`. A
+generation counter prevents an old helper completion from clearing a newer
+capture's process handle; camera changes, stream stop and capture errors
+interrupt the helper through its restoration path.
+
+This is an explicit illumination primitive, not automatic flash metering. The
+helper is kept in `oneplus6t-pmos-fixes` so the sysfs policy, fixture tests and
+postmarketOS installation can be reviewed and updated independently of the
+camera UI. If the helper or writable LED channels are absent, the switch is
+disabled and no capture behavior changes.
+
 Long term, the preferred design is a typed Aperture control/status API backed
 directly by PipeWire properties and request metadata. The helper keeps this
 first implementation reviewable and independently rollback-safe.

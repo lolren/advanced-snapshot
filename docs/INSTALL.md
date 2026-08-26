@@ -20,6 +20,18 @@ GSettings schema, metainfo, resources and icons under the
 `io.github.lolren.AdvancedSnapshot` name. It must not contain or overwrite
 `org.gnome.Snapshot` paths.
 
+The optional **Hardware flash** switch is supplied by the separate
+`oneplus6t-pmos-fixes` package. On a OnePlus 6T installation, install that
+package alongside Advanced Snapshot and verify the helper before opening the
+camera:
+
+```sh
+pmos-camera-flash --status
+```
+
+The status command is read-only. A report with no writable `*:flash` channels
+keeps the switch disabled; it does not modify LED state.
+
 ## Build the postmarketOS package
 
 Copy `packaging/postmarketos/APKBUILD` and `cargo-auditable.patch` into

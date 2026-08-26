@@ -44,6 +44,11 @@
       <summary>Enable hardware recording</summary>
       <description>Whether to prefer hardware video encoding</description>
     </key>
+    <key name="hardware-flash" type="b">
+      <default>false</default>
+      <summary>Use hardware flash</summary>
+      <description>Whether to pulse the phone's camera flash LEDs for photos</description>
+    </key>
     <key name="countdown" type="i">
       <default>0</default>
       <summary>Countdown timer</summary>

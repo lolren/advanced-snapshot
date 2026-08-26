@@ -20,7 +20,7 @@ config = configure_file(
 executable(
   'advanced-snapshot-focus-control',
   'focus-control.c',
-  dependencies: pipewire_dep,
+  dependencies: [pipewire_dep, math_dep],
   install: true,
   install_dir: libexecdir,
 )

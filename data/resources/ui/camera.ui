@@ -679,6 +679,18 @@
                                     </child>
                                   </object>
                                 </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Hardware flash</property>
+                                    <property name="subtitle" translatable="yes">Use the rear camera LEDs for a short photo pulse</property>
+                                    <child>
+                                      <object class="GtkSwitch" id="flash_switch">
+                                        <property name="valign">center</property>
+                                        <property name="tooltip-text" translatable="yes">Pulse the phone's rear flash LEDs when taking a photo</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                             <child>

@@ -33,11 +33,14 @@ glib_compile_schemas = find_program('glib-compile-schemas', required: true)
 desktop_file_validate = find_program('desktop-file-validate', required: false)
 appstreamcli = find_program('appstreamcli', required: false)
 cargo = find_program('cargo', required: true)
+c_compiler = meson.get_compiler('c')
+math_dep = c_compiler.find_library('m', required: true)
 
 version = meson.project_version()
 
 prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
+sbindir = prefix / get_option('sbindir')
 libexecdir = prefix / get_option('libexecdir')
 localedir = prefix / get_option('localedir')
 
@@ -88,6 +91,10 @@ cargo_env.set('CARGO_TARGET_DIR', cargo_target)
 cargo_env.set(
   'ADVANCED_SNAPSHOT_FOCUS_HELPER',
   libexecdir / 'advanced-snapshot-focus-control',
+)
+cargo_env.set(
+  'ADVANCED_SNAPSHOT_FLASH_HELPER',
+  sbindir / 'pmos-camera-flash',
 )
 
 meson.add_devenv(cargo_env)

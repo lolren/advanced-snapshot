@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+use std::ffi::OsStr;
 use std::os::unix::io::OwnedFd;
+use std::path::Path;
 use std::time::Duration;
 
 use adw::prelude::*;
@@ -19,6 +21,12 @@ use crate::{config, utils};
 // pinch updates are coalesced to the latest value at roughly preview-frame
 // cadence. The exact final value is still applied when the gesture ends.
 const PINCH_ZOOM_UPDATE_INTERVAL: Duration = Duration::from_millis(33);
+const FLASH_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FLASH_HELPER") {
+    Some(path) => path,
+    None => "pmos-camera-flash",
+};
+const FLASH_DURATION_MS: &str = "2500";
+const FLASH_LEVEL: &str = "32";
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -42,6 +50,8 @@ mod imp {
         pub recording_duration: Cell<u32>,
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
+        pub flash_generation: Cell<u64>,
+        pub flash_process: RefCell<Option<gio::Subprocess>>,
         pub pinch_zoom_start: Cell<f64>,
         pub pinch_zoom_active: Cell<bool>,
         pub pending_pinch_zoom: Cell<Option<f64>>,
@@ -97,6 +107,8 @@ mod imp {
         pub zoom_reset_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub reset_image_controls: TemplateChild<gtk::Button>,
+        #[template_child]
+        pub flash_switch: TemplateChild<gtk::Switch>,
     }
 
     #[glib::object_subclass]
@@ -227,6 +239,7 @@ mod imp {
                     if let Some(camera) = viewfinder.camera() {
                         obj.set_image_control_defaults(&camera);
                     }
+                    obj.update_flash_availability();
                 }
             ));
 
@@ -395,6 +408,12 @@ mod imp {
                 .build();
 
             self.settings()
+                .bind("hardware-flash", &*self.flash_switch, "active")
+                .build();
+
+            obj.update_flash_availability();
+
+            self.settings()
                 .bind("capture-mode", &*obj, "capture-mode")
                 .build();
 
@@ -553,7 +572,20 @@ impl Camera {
         let filename = utils::picture_file_name(format);
         let path = utils::pictures_dir()?.join(filename);
 
-        imp.viewfinder.take_picture(path)?;
+        let flash_started = self.start_hardware_flash();
+        if flash_started {
+            // Give the helper time to write the LED channels before camerabin
+            // starts the still request. The delay is short compared with a
+            // normal capture and the helper itself has a hard duration cap.
+            glib::timeout_future(Duration::from_millis(80)).await;
+        }
+
+        if let Err(err) = imp.viewfinder.take_picture(&path) {
+            if flash_started {
+                self.stop_hardware_flash();
+            }
+            return Err(err.into());
+        }
         imp.flash_bin.flash();
 
         let settings = imp.settings();
@@ -565,6 +597,7 @@ impl Camera {
     }
 
     fn camera_switched(&self) {
+        self.stop_hardware_flash();
         let provider = self.imp().provider.get().unwrap();
 
         let current = self.imp().viewfinder.camera();
@@ -649,6 +682,7 @@ impl Camera {
             #[weak(rename_to = obj)]
             self,
             move |_, file| {
+                obj.stop_hardware_flash();
                 let window = obj.root().and_downcast::<crate::Window>().unwrap();
                 window.set_shutter_enabled(true);
                 if let Some(file) = file {
@@ -685,6 +719,7 @@ impl Camera {
     }
 
     pub fn stop_stream(&self) {
+        self.stop_hardware_flash();
         self.imp().viewfinder.stop_stream();
     }
 
@@ -805,6 +840,80 @@ impl Camera {
         imp.sharpness_scale.set_value(1.0);
         imp.zoom_scale.set_value(1.0);
         self.queue_image_adjustments();
+    }
+
+    fn update_flash_availability(&self) {
+        let imp = self.imp();
+        let rear_camera = imp
+            .viewfinder
+            .camera()
+            .is_some_and(|camera| matches!(camera.location(), aperture::CameraLocation::Back));
+        imp.flash_switch
+            .set_sensitive(rear_camera && flash_helper_available());
+    }
+
+    fn start_hardware_flash(&self) -> bool {
+        let rear_camera = self
+            .imp()
+            .viewfinder
+            .camera()
+            .is_some_and(|camera| matches!(camera.location(), aperture::CameraLocation::Back));
+        if !self.imp().flash_switch.is_active() || !rear_camera || !flash_helper_available() {
+            return false;
+        }
+
+        self.stop_hardware_flash();
+        let launcher = gio::SubprocessLauncher::new(
+            gio::SubprocessFlags::STDOUT_PIPE | gio::SubprocessFlags::STDERR_PIPE,
+        );
+        let process = match launcher.spawn(&[
+            OsStr::new(FLASH_HELPER),
+            OsStr::new("--pulse"),
+            OsStr::new("--duration-ms"),
+            OsStr::new(FLASH_DURATION_MS),
+            OsStr::new("--level"),
+            OsStr::new(FLASH_LEVEL),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::debug!("Hardware flash helper is unavailable: {err}");
+                return false;
+            }
+        };
+
+        self.imp().flash_process.replace(Some(process.clone()));
+        let generation = self.imp().flash_generation.get();
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = camera)]
+            self,
+            async move {
+                match process.communicate_utf8_future(None).await {
+                    Ok((_, Some(stderr))) if !stderr.trim().is_empty() => {
+                        log::debug!("Hardware flash helper: {}", stderr.trim());
+                    }
+                    Ok(_) => (),
+                    Err(err) => log::debug!("Hardware flash helper stopped: {err}"),
+                }
+                let imp = camera.imp();
+                if imp.flash_generation.get() == generation {
+                    imp.flash_process.take();
+                }
+            }
+        ));
+        true
+    }
+
+    fn stop_hardware_flash(&self) {
+        let imp = self.imp();
+        imp.flash_generation
+            .set(imp.flash_generation.get().wrapping_add(1));
+        if let Some(process) = imp.flash_process.take()
+            && !process.has_exited()
+        {
+            // camera-flash handles SIGINT by restoring the values it saved
+            // before enabling the LEDs. SIGKILL is intentionally avoided.
+            process.send_signal(2);
+        }
     }
 
     fn set_image_control_defaults(&self, camera: &aperture::Camera) {
@@ -966,6 +1075,14 @@ fn image_control_defaults(camera_name: &str) -> (f64, f64) {
     } else {
         // IMX519, and a conservative fallback for other colour sensors.
         (1.05, 1.25)
+    }
+}
+
+fn flash_helper_available() -> bool {
+    if FLASH_HELPER.contains('/') {
+        Path::new(FLASH_HELPER).is_file()
+    } else {
+        glib::find_program_in_path(FLASH_HELPER).is_some()
     }
 }
 

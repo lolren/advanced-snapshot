@@ -26,6 +26,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
+| Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
 | Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
@@ -47,12 +48,17 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Open **Image Controls** for exposure compensation, colour saturation,
   contrast and detail. **Reset** restores the sensor-aware defaults and 1x
   zoom.
+- On a rear camera, enable **Image Controls → Hardware flash** for one bounded
+  LED pulse during the next still capture. It is off by default, requires the
+  optional `oneplus6t-pmos-fixes` helper, and is disabled for the fixed-focus
+  front camera.
 - The countdown button offers the inherited 0, 3, 5 and 10 second choices;
   composition guidelines remain a persisted preference.
 
 Zoom is a digital crop performed by Camerabin, not optical lens zoom. HDR,
-manual shutter/ISO and flash remain unavailable until the lower camera stack
-can implement and report them truthfully.
+manual shutter/ISO and automatic flash metering remain unavailable. The
+hardware-flash switch is an explicit, bounded LED pulse; it is not HDR and does
+not claim Android-vendor flash/exposure parity.
 
 ## Runtime requirements
 
@@ -62,6 +68,11 @@ can implement and report them truthfully.
 - glycin, an XDG camera portal and matching desktop portal backend; and
 - for libcamera phones, `pipewire-spa-libcamera` plus a camera stack that
   advertises the controls used by the interface.
+
+The optional rear-flash control additionally needs the `pmos-camera-flash`
+command from [oneplus6t-pmos-fixes](https://github.com/lolren/oneplus6t-pmos-fixes)
+and writable `*:flash` LED channels. Without it, the rest of the application
+continues to work and the switch remains unavailable.
 
 The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
 libcamera SPA r7, Advanced Snapshot r4 and postmarketOS edge. The signed r7/r4
