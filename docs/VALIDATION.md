@@ -508,3 +508,22 @@ the camera while its stop transition is still in progress.
 The pinned GTK CI container's formatting and locked full workspace test suite
 passed after this change. Physical navigation, playable-file and encoder-error
 acceptance remain pending on the recovered OnePlus 6T.
+
+## Sensor-aware startup-default checkpoint
+
+- Date: 2026-08-26
+- Change: apply the sensor-specific colour and contrast defaults when Aperture
+  selects the first camera during startup, as well as when the user changes
+  cameras later
+
+Aperture can finish selecting its initial camera before the application-level
+camera selector runs. The camera-property notification now applies the same
+IMX371, IMX376 and IMX519 defaults used for manual camera changes. The default
+selection is kept in a pure helper so it can be tested independently; unknown
+camera names use the conservative colour-sensor fallback.
+
+The unit tests cover all three OnePlus 6T sensors and the fallback. The pinned
+GTK container's formatting and locked full workspace test suite must pass before
+this change is released. Saved-photo colour-chart and physical preview
+acceptance remain device-gated because the reference phone is currently not
+reachable through a usable control interface.

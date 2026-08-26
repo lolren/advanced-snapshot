@@ -216,6 +216,20 @@ mod imp {
                 }
             ));
 
+            // Aperture can select the initial camera while it brings the
+            // provider up, before the application-level selector sees it.
+            // Apply the same sensor-aware defaults used when switching
+            // cameras so the first preview is not left at generic values.
+            self.viewfinder.connect_camera_notify(glib::clone!(
+                #[weak]
+                obj,
+                move |viewfinder| {
+                    if let Some(camera) = viewfinder.camera() {
+                        obj.set_image_control_defaults(&camera);
+                    }
+                }
+            ));
+
             self.viewfinder.connect_code_detected(glib::clone!(
                 #[weak]
                 obj,
@@ -570,7 +584,6 @@ impl Camera {
         if let Some(ref camera) = camera {
             let id = id_from_pw(camera);
             imp.settings().set_string("last-camera-id", &id).unwrap();
-            self.set_image_control_defaults(camera);
         }
 
         if imp.viewfinder.is_recording() {
@@ -794,15 +807,7 @@ impl Camera {
 
     fn set_image_control_defaults(&self, camera: &aperture::Camera) {
         let imp = self.imp();
-        let model = camera.display_name().to_ascii_lowercase();
-        let (contrast, saturation) = if model.contains("imx371") {
-            (1.10, 1.25)
-        } else if model.contains("imx376") {
-            (1.05, 1.15)
-        } else {
-            // IMX519, and a conservative fallback for other colour sensors.
-            (1.05, 1.25)
-        };
+        let (contrast, saturation) = image_control_defaults(&camera.display_name());
 
         imp.exposure_scale.set_value(0.0);
         imp.saturation_scale.set_value(saturation);
@@ -950,9 +955,33 @@ fn format_zoom_label(zoom: f64) -> String {
     format!("{zoom:.1}×")
 }
 
+fn image_control_defaults(camera_name: &str) -> (f64, f64) {
+    let model = camera_name.to_ascii_lowercase();
+    if model.contains("imx371") {
+        (1.10, 1.25)
+    } else if model.contains("imx376") {
+        (1.05, 1.15)
+    } else {
+        // IMX519, and a conservative fallback for other colour sensors.
+        (1.05, 1.25)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{format_zoom_label, pinch_zoom_value};
+    use super::{format_zoom_label, image_control_defaults, pinch_zoom_value};
+
+    #[test]
+    fn sensor_defaults_are_selected_for_all_phone_cameras() {
+        assert_eq!(image_control_defaults("Sony IMX371 Main"), (1.10, 1.25));
+        assert_eq!(image_control_defaults("Sony IMX376 Front"), (1.05, 1.15));
+        assert_eq!(image_control_defaults("Sony IMX519 Wide"), (1.05, 1.25));
+    }
+
+    #[test]
+    fn unknown_camera_uses_conservative_defaults() {
+        assert_eq!(image_control_defaults("USB Webcam"), (1.05, 1.25));
+    }
 
     #[test]
     fn pinch_zoom_scales_from_gesture_start() {

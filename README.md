@@ -24,6 +24,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
+| Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |

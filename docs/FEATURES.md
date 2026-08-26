@@ -13,6 +13,7 @@ camera stack” must always agree.
 | Continuous focus | Return to whole-frame monitoring after a tap | Stable continuous AF implementation | No lens sweep on Reset and no stable-scene hunting |
 | Fixed focus | No focus affordance | Camera advertises no AF controls | Front stream works; focus request reports unsupported |
 | Exposure | -1..+1 EV UI | Standard `ExposureValue` | Metadata echoes request and pixels move unless sensor-limited |
+| Sensor-aware startup defaults | Applies the selected sensor's tuned colour/contrast defaults even when Aperture selects the first camera during startup | Camera display-name model matching | IMX371, IMX376 and IMX519 defaults are unit-tested; unknown cameras use a conservative fallback |
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
