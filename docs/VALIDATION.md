@@ -588,3 +588,26 @@ The r10 pair is source/package validated but not installed or hardware-
 accepted. The reference OnePlus 6T still exposes CDC-NCM without an SSH
 banner, so preview, saved-photo, video, display and rollback acceptance remain
 open.
+
+## Advanced Snapshot r11 bounded hardware-flash package checkpoint
+
+- Date: 2026-08-26
+- Source commit: `0512a75b1419db5621e4e65c7c4ea5b3446aeeac`
+- Recipe revision: `advanced-snapshot-0.1.0-r11`
+- Source archive SHA-512:
+  `84b4849ebd8b46e8473a1cea2c8197cb54a9fed54435cac44528c4575b285b3c1f8341b52e9639d7da1eb5b928eee1568efb525a48ec36462feab96e4e79bb37`
+
+The application now exposes an opt-in rear **Hardware flash** switch. It
+launches `pmos-camera-flash` only for a rear camera, uses a 2.5-second level-32
+pulse, and interrupts the helper through its restoration path on capture error,
+camera switch or stream teardown. The switch remains unavailable when the
+helper is absent, and HDR, manual ISO/shutter and automatic flash metering are
+still intentionally not advertised.
+
+The pinned GTK build passed Meson compilation (including the focus helper's
+explicit libm link), formatting, all 6 application tests, all 9 Aperture tests,
+desktop/schema/AppStream validation and the Meson cargo test. The pMOS helper's
+fixture suite passed normal pulse, interruption restoration, off and
+no-hardware cases. This is source/package validation only: no AArch64 r11 APK
+was produced in this host run, and the reference phone still has no usable
+SSH/ADB/fastboot transport for live LED or capture acceptance.
