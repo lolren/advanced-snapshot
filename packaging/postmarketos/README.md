@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`eef98bb16a5af6cdb21150811a4ea33d6543daf`, and Cargo dependencies are
+`eef98bbb16a5af6cdb21150811a4ea33d6543daf`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
