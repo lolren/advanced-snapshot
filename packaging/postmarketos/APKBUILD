@@ -2,8 +2,8 @@
 maintainer="Lolren <loren.bufanu@gmail.com>"
 pkgname=advanced-snapshot
 pkgver=0.1.0
-pkgrel=6
-_commit="3ac146f3768ec30fbf82f1a172725fefda5da733"
+pkgrel=7
+_commit="0df3acc7626a5d5db195c58536ab649e16b83cd3"
 pkgdesc="Mobile-first camera application with truthful manual controls"
 url="https://github.com/lolren/advanced-snapshot"
 arch="all"
@@ -64,6 +64,6 @@ package() {
 }
 
 sha512sums="
-c1bc644cb84cd100162ba404248526a6ec6b7f59acb61e24f0c9966f36673aab02eabe3d19c97814acb87efac550f5bfb56b32ef22a7d0986ddb8604e71ba866  advanced-snapshot-0.1.0.tar.gz
+194a5e16bf66852edcc34de31d9c94d01eeb191f453e8576edfcc10525a34ab904a61e5b637072f2f5d1f25326e72c16db0305e187309b2ae1072b6ade37a9c3  advanced-snapshot-0.1.0.tar.gz
 7f729fa3797bce8f2088d3b6aa72057cd6c3d5cd3cebca2b001d92cb9c0ffd9375a98e16db949717d32a608ccd7d11a31552f8192e8b48df61d482d61fe9f931  cargo-auditable.patch
 "

@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`3ac146f3768ec30fbf82f1a172725fefda5da733`, and Cargo dependencies are
+`0df3acc7626a5d5db195c58536ab649e16b83cd3`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -23,9 +23,9 @@ Snapshot package when it is available locally:
 ```sh
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r6.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r7.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r6.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r7.apk
 ```
 
 The recipe runs all library and binary unit tests in the Cargo workspace,

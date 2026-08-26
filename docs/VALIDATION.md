@@ -527,3 +527,17 @@ GTK container's formatting and locked full workspace test suite must pass before
 this change is released. Saved-photo colour-chart and physical preview
 acceptance remain device-gated because the reference phone is currently not
 reachable through a usable control interface.
+
+## PostmarketOS recipe-sync checkpoint
+
+- Date: 2026-08-26
+- Recipe revision: `advanced-snapshot-0.1.0-r7`
+- Source commit: `0df3acc7626a5d5db195c58536ab649e16b83cd3`
+- GitHub source archive SHA-512:
+  `194a5e16bf66852edcc34de31d9c94d01eeb191f453e8576edfcc10525a34ab904a61e5b637072f2f5d1f25326e72c16db0305e187309b2ae1072b6ade37a9c3`
+
+The postmarketOS APKBUILD now consumes the exact pushed source revision that
+VibeMarketOS pins. The package release was incremented from r6 to r7 and the
+archive checksum was obtained from the immutable GitHub commit archive. A clean
+AArch64 pmbootstrap build and artifact validation are still required before
+this recipe is installed on the phone.
