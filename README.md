@@ -28,7 +28,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
-| Software HDR exposure fusion | Captures dark, normal and bright JPEGs, rejects clipped samples, merges them in linear light and writes one atomically installed JPEG; temporary frames are removed on success or failure | Implemented in source; phone image-quality acceptance pending |
+| Software HDR exposure fusion | Captures dark, normal and bright JPEGs, aligns bounded whole-frame handheld translation, rejects clipped samples, merges them in linear light and writes one atomically installed JPEG; temporary frames are removed on success or failure | Implemented in source; phone image-quality acceptance pending |
 | Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
@@ -52,8 +52,9 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   zoom.
 - Enable **Software HDR** to capture a dark, normal and bright frame and merge
   them into one JPEG. It requires automatic exposure; the three frames are
-  intentionally captured without hardware flash. Keep the phone still because
-  this open implementation does not yet align moving subjects.
+  intentionally captured without hardware flash. Small whole-frame shifts are
+  aligned automatically, but keep the phone and subject still because local or
+  non-rigid subject motion can still ghost.
 - Leave **Automatic exposure** enabled for normal use. Turn it off to expose
   the **Shutter (µs)** and **Analogue gain** controls. These submit standard
   libcamera controls; the active sensor may clamp them to its safe range.
@@ -65,11 +66,12 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   composition guidelines remain a persisted preference.
 
 Zoom is a digital crop performed by Camerabin, not optical lens zoom. Software
-HDR is exposure fusion, not the OnePlus vendor HDR pipeline: it has no motion
-alignment, local tone mapping, automatic flash metering, calibrated CCM or
-lens-shading tables. Manual analogue gain is not the same thing as a vendor ISO
-mode, and no vendor-specific ISO calibration is claimed. The hardware-flash
-switch is an explicit, bounded LED pulse and is not used during HDR capture.
+HDR is exposure fusion, not the OnePlus vendor HDR pipeline: alignment is
+limited to one global translation per bracket, with no local motion model,
+local tone mapping, automatic flash metering, calibrated CCM or lens-shading
+tables. Manual analogue gain is not the same thing as a vendor ISO mode, and no
+vendor-specific ISO calibration is claimed. The hardware-flash switch is an
+explicit, bounded LED pulse and is not used during HDR capture.
 
 ## Runtime requirements
 
@@ -87,7 +89,9 @@ continues to work and the switch remains unavailable.
 
 Software HDR additionally installs the `advanced-snapshot-hdr` helper under
 `/usr/libexec`. The helper only accepts three same-sized decoded images,
-limits processing to 40 megapixels, writes a temporary JPEG in the destination
+limits processing to 40 megapixels, estimates at most 96 pixels of global
+translation from exposure-resistant luminance gradients, and keeps zero shift
+when the match is ambiguous. It writes a temporary JPEG in the destination
 directory and renames it atomically. It can also be run independently for
 reproducible testing:
 

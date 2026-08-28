@@ -36,8 +36,9 @@ keeps the switch disabled; it does not modify LED state.
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes
-the temporary files. Keep the phone still; moving subjects may ghost because
-the open implementation does not yet perform frame alignment.
+the temporary files. It aligns small whole-frame translations automatically,
+but keep the phone and subject still: independently moving subjects, rotation,
+parallax and non-rigid motion can still ghost.
 
 ## Build the postmarketOS package
 

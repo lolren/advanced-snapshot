@@ -3,14 +3,21 @@
 //!
 //! The camera pipeline supplies three JPEGs captured at -1, 0 and +1 EV.
 //! This module converts the decoded sRGB samples to a linear working space,
+//! estimates a conservative global translation against the middle exposure,
 //! estimates the scene value from each exposure, rejects clipped samples and
 //! applies a conservative global tone map. It deliberately does not claim
-//! motion alignment, local tone mapping, lens shading or vendor ISP parity.
+//! local/non-rigid motion alignment, local tone mapping, lens shading or vendor
+//! ISP parity.
+
+#[path = "hdr/alignment.rs"]
+mod alignment;
 
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
 use gdk_pixbuf::{Colorspace, Pixbuf};
+
+use self::alignment::{Translation, estimate_translation};
 
 const EXPECTED_FRAMES: usize = 3;
 const MAX_PIXELS: usize = 40_000_000;
@@ -126,53 +133,81 @@ fn merge_rgb_frames(frames: &[RgbFrame]) -> anyhow::Result<RgbFrame> {
         bail!("HDR frames do not have identical dimensions");
     }
 
+    let alignments = [
+        estimate_translation(
+            first.width,
+            first.height,
+            &frames[1].pixels,
+            &frames[0].pixels,
+        ),
+        Translation::default(),
+        estimate_translation(
+            first.width,
+            first.height,
+            &frames[1].pixels,
+            &frames[2].pixels,
+        ),
+    ];
+
     let mut output = vec![0u8; first.pixels.len()];
-    for pixel in 0..(first.width * first.height) {
-        let offset = pixel * 3;
-        let mut weighted = [0.0f32; 3];
-        let mut total_weight = 0.0f32;
+    for y in 0..first.height {
+        for x in 0..first.width {
+            let offset = (y * first.width + x) * 3;
+            let mut weighted = [0.0f32; 3];
+            let mut total_weight = 0.0f32;
 
-        for (frame_index, frame) in frames.iter().enumerate() {
-            let red = srgb_to_linear(frame.pixels[offset]);
-            let green = srgb_to_linear(frame.pixels[offset + 1]);
-            let blue = srgb_to_linear(frame.pixels[offset + 2]);
-            let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+            for (frame_index, frame) in frames.iter().enumerate() {
+                let Some(sample_x) = x.checked_add_signed(alignments[frame_index].x) else {
+                    continue;
+                };
+                let Some(sample_y) = y.checked_add_signed(alignments[frame_index].y) else {
+                    continue;
+                };
+                if sample_x >= first.width || sample_y >= first.height {
+                    continue;
+                }
+                let sample_offset = (sample_y * first.width + sample_x) * 3;
+                let red = srgb_to_linear(frame.pixels[sample_offset]);
+                let green = srgb_to_linear(frame.pixels[sample_offset + 1]);
+                let blue = srgb_to_linear(frame.pixels[sample_offset + 2]);
+                let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 
-            // Prefer middle tones and avoid samples that are close to either
-            // sensor/codec endpoint. The fourth-power curve makes the merge
-            // naturally use the bright frame for shadows and the dark frame
-            // for highlights without hard seams.
-            let normalized = (luminance / EXPOSURE_SCALES[frame_index]).clamp(0.0, 1.0);
-            let distance = ((normalized - 0.42) / 0.42).abs();
-            let midtone_weight = (1.0 - distance * distance).max(0.0).powi(2);
-            let endpoint_weight = if luminance <= 0.002 || luminance >= 0.985 {
-                0.0
-            } else {
-                1.0
-            };
-            let weight = midtone_weight * endpoint_weight;
+                // Prefer middle tones and avoid samples that are close to either
+                // sensor/codec endpoint. The fourth-power curve makes the merge
+                // naturally use the bright frame for shadows and the dark frame
+                // for highlights without hard seams.
+                let normalized = (luminance / EXPOSURE_SCALES[frame_index]).clamp(0.0, 1.0);
+                let distance = ((normalized - 0.42) / 0.42).abs();
+                let midtone_weight = (1.0 - distance * distance).max(0.0).powi(2);
+                let endpoint_weight = if luminance <= 0.002 || luminance >= 0.985 {
+                    0.0
+                } else {
+                    1.0
+                };
+                let weight = midtone_weight * endpoint_weight;
 
-            weighted[0] += red / EXPOSURE_SCALES[frame_index] * weight;
-            weighted[1] += green / EXPOSURE_SCALES[frame_index] * weight;
-            weighted[2] += blue / EXPOSURE_SCALES[frame_index] * weight;
-            total_weight += weight;
-        }
-
-        if total_weight <= f32::EPSILON {
-            // An all-black/all-clipped pixel has no trustworthy exposure.
-            // Keep the middle exposure as a deterministic fallback.
-            for (channel, value) in weighted.iter_mut().enumerate() {
-                *value = srgb_to_linear(frames[1].pixels[offset + channel]);
+                weighted[0] += red / EXPOSURE_SCALES[frame_index] * weight;
+                weighted[1] += green / EXPOSURE_SCALES[frame_index] * weight;
+                weighted[2] += blue / EXPOSURE_SCALES[frame_index] * weight;
+                total_weight += weight;
             }
-            total_weight = 1.0;
-        }
 
-        for channel in 0..3 {
-            let scene_value = weighted[channel] / total_weight;
-            // A global Reinhard curve keeps the output in displayable range
-            // while retaining highlight detail from the dark bracket.
-            let tone_mapped = (scene_value * 1.25) / (1.0 + scene_value * 1.25);
-            output[offset + channel] = linear_to_srgb(tone_mapped);
+            if total_weight <= f32::EPSILON {
+                // An all-black/all-clipped pixel has no trustworthy exposure.
+                // Keep the middle exposure as a deterministic fallback.
+                for (channel, value) in weighted.iter_mut().enumerate() {
+                    *value = srgb_to_linear(frames[1].pixels[offset + channel]);
+                }
+                total_weight = 1.0;
+            }
+
+            for channel in 0..3 {
+                let scene_value = weighted[channel] / total_weight;
+                // A global Reinhard curve keeps the output in displayable range
+                // while retaining highlight detail from the dark bracket.
+                let tone_mapped = (scene_value * 1.25) / (1.0 + scene_value * 1.25);
+                output[offset + channel] = linear_to_srgb(tone_mapped);
+            }
         }
     }
 
@@ -245,6 +280,7 @@ pub fn merge_hdr_files(inputs: &[PathBuf], output: &Path) -> anyhow::Result<()> 
 #[cfg(test)]
 mod tests {
     use super::RgbFrame;
+    use super::alignment::Translation;
     use super::linear_to_srgb;
     use super::load_rgb_frame;
     use super::merge_rgb_frames;
@@ -253,6 +289,44 @@ mod tests {
 
     fn frame(value: u8) -> RgbFrame {
         RgbFrame::new(1, 1, vec![value; 3]).unwrap()
+    }
+
+    fn patterned_frame(width: usize, height: usize, numerator: u16, denominator: u16) -> RgbFrame {
+        let mut pixels = vec![0u8; width * height * 3];
+        for y in 0..height {
+            for x in 0..width {
+                let offset = (y * width + x) * 3;
+                let base = 40 + ((x * 17 + y * 29 + x * y * 3) % 130) as u8;
+                for (channel, adjustment) in [0u8, 19, 37].into_iter().enumerate() {
+                    let value = base.saturating_add(adjustment).min(210);
+                    pixels[offset + channel] =
+                        (u16::from(value) * numerator / denominator).min(250) as u8;
+                }
+            }
+        }
+        RgbFrame::new(width, height, pixels).unwrap()
+    }
+
+    fn translated_frame(frame: &RgbFrame, translation: Translation) -> RgbFrame {
+        let mut pixels = vec![96u8; frame.pixels.len()];
+        for y in 0..frame.height {
+            for x in 0..frame.width {
+                let Some(destination_x) = x.checked_add_signed(translation.x) else {
+                    continue;
+                };
+                let Some(destination_y) = y.checked_add_signed(translation.y) else {
+                    continue;
+                };
+                if destination_x >= frame.width || destination_y >= frame.height {
+                    continue;
+                }
+                let source = (y * frame.width + x) * 3;
+                let destination = (destination_y * frame.width + destination_x) * 3;
+                pixels[destination..destination + 3]
+                    .copy_from_slice(&frame.pixels[source..source + 3]);
+            }
+        }
+        RgbFrame::new(frame.width, frame.height, pixels).unwrap()
     }
 
     #[test]
@@ -282,6 +356,33 @@ mod tests {
     fn merge_has_a_deterministic_black_fallback() {
         let result = merge_rgb_frames(&[frame(0), frame(0), frame(0)]).unwrap();
         assert_eq!(result.pixels, vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn merge_aligns_translated_brackets_to_the_middle_exposure() {
+        let (width, height) = (160, 120);
+        let dark = patterned_frame(width, height, 3, 5);
+        let middle = patterned_frame(width, height, 1, 1);
+        let bright = patterned_frame(width, height, 6, 5);
+        let expected = merge_rgb_frames(&[dark.clone(), middle.clone(), bright.clone()]).unwrap();
+        let actual = merge_rgb_frames(&[
+            translated_frame(&dark, Translation { x: 5, y: -4 }),
+            middle,
+            translated_frame(&bright, Translation { x: -3, y: 2 }),
+        ])
+        .unwrap();
+
+        // The outer band may lack samples after translation. Every interior
+        // pixel must match the same stationary exposure bracket exactly.
+        for y in 32..height - 32 {
+            for x in 32..width - 32 {
+                let offset = (y * width + x) * 3;
+                assert_eq!(
+                    &actual.pixels[offset..offset + 3],
+                    &expected.pixels[offset..offset + 3]
+                );
+            }
+        }
     }
 
     #[test]

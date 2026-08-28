@@ -48,15 +48,22 @@ the sequence. The completed paths are passed to the separate
 `advanced-snapshot-hdr` helper so JPEG decoding and the bounded merge do not
 block the GTK main loop. The helper linearizes sRGB samples, weights
 well-exposed/non-clipped samples, applies a global Reinhard tone map and writes
-the result to a temporary file before an atomic rename. The app restores the
-user's normal image controls and deletes all intermediate files on success,
-capture failure, helper failure or stream teardown.
+the result to a temporary file before an atomic rename. Before fusion, it
+registers the dark and bright brackets against the middle frame. The matcher
+uses log-luminance gradients, a bounded 512-pixel thumbnail search and sparse
+full-resolution refinement. It accepts at most 96 pixels of whole-frame
+translation and returns zero shift when the best score does not improve the
+unshifted score by at least six percent. Samples that move outside the source
+frame are omitted; the middle exposure remains the deterministic fallback.
+The app restores the user's normal image controls and deletes all intermediate
+files on success, capture failure, helper failure or stream teardown.
 
 This is an open exposure-fusion baseline, not a proprietary Android ISP:
-frames are not geometrically aligned, so moving subjects can ghost, and output
+global camera translation is aligned, but independently moving subjects,
+rotation, scale change, parallax and non-rigid motion can still ghost. Output
 metadata/EXIF is not preserved by the GdkPixbuf JPEG re-encode. The explicit
-limits and honest UI text keep those constraints visible until a future
-alignment/tone-mapping implementation is independently validated.
+limits and honest UI text keep those constraints visible until richer motion
+and tone-mapping implementations are independently validated.
 
 ## Manual exposure
 
