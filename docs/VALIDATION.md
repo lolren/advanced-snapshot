@@ -709,3 +709,45 @@ advanced-snapshot-lang-0.1.0-r14.apk: 25d01d10d69099c6c6d837a0cdd30c8724b3e831bf
 The pair is included in the opt-in `camera-r26-r14` generation. Phone
 installation and hardware image-quality acceptance remain open; do not
 replace the retained r13/r11 artifact until those gates pass.
+
+## Advanced Snapshot r15 handheld-HDR-alignment package checkpoint
+
+- Date: 2026-08-28
+- Source commit: `6813a64b499177d3d0ef5272b019c6da53400fba`
+- Recipe revision: `advanced-snapshot-0.1.0-r15`
+- Reviewed pmaports base: `875bddba6538818f2c3c9849e184f40688ad5140`
+- GitHub source archive SHA-512:
+  `49252237523317fdd3e27aa4edb60c6ed932a0108757a32208f385d6698c07401bfd9f172045c57ad2af6b7109003dc061527e428d5663931b8685ec3a2771ad`
+
+The HDR helper now estimates bounded global translation for the dark and
+bright brackets against the middle exposure. It compares exposure-resistant
+log-luminance gradients on a bounded thumbnail, refines the result against
+sparse full-resolution samples and accepts at most 96 pixels of translation.
+An ambiguous match or one that improves the unshifted score by less than six
+percent safely remains unshifted. The merge omits translated samples outside
+the image while retaining the middle exposure as a deterministic fallback.
+This compensates small whole-frame handheld motion; it does not claim local
+motion, rotation, scale, parallax, moving-subject or vendor-ISP correction.
+
+The native pMOS/Alpine environment passed the locked full workspace suite (8
+application, 10 HDR/helper and 9 Aperture tests), including an end-to-end merge
+that reproduces the stationary result after independently translating both
+outer brackets. The same source passed `cargo fmt`, strict Clippy with
+`-D warnings`, all five Meson release gates and a staged-install manifest
+check. The clean AArch64/musl package build repeated all 27 tests under QEMU.
+
+The independently validated signed artifacts are:
+
+```text
+advanced-snapshot-0.1.0-r15.apk: 16581bcf5c96aa74c522c4f51bbd5cb03711a3e41abd02f00a6d9eec7cf61705
+advanced-snapshot-lang-0.1.0-r15.apk: dec0ec0c229848a0e157e2eba49ab9e74d30423e69ae76bbd73773eea97b61d2
+public-key: 31d5d6663ebe400a93fd3d5a107da2ea4dd96e8f6835ba1cdfecf89389ec16f6
+```
+
+The validator accepted signatures, exact package versions, AArch64 binaries,
+the expected file manifest, independent resource identifiers, desktop/D-Bus/
+AppStream/schema metadata, language splitting and zero file ownership overlap
+with GNOME Snapshot. r15 is source- and package-validated but remains an
+opt-in candidate: it has not been installed or image-quality accepted on the
+reference phone while that phone exposes no usable SSH session. Keep r14 and
+the retained device-accepted application package available for rollback.
