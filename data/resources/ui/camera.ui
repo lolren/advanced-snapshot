@@ -527,7 +527,6 @@
                             <property name="margin-end">18</property>
                             <property name="focus-on-click">False</property>
                             <property name="tooltip-text" translatable="yes">Open Image Controls</property>
-                            <property name="accessible-label" translatable="yes">Open Image Controls</property>
                             <property name="action-name">win.image-controls</property>
                             <style>
                               <class name="image-controls-entry" />
