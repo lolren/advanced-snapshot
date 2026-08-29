@@ -12,7 +12,7 @@ use anyhow::Context;
 use ashpd::desktop::camera;
 use gettextrs::gettext;
 use gtk::CompositeTemplate;
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib, graphene};
 
 use super::CameraControls;
 use crate::enums::ControlsLayout;
@@ -68,6 +68,8 @@ mod imp {
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
         pub manual_exposure_handler: RefCell<Option<glib::source::SourceId>>,
+        pub manual_focus_handler: RefCell<Option<glib::source::SourceId>>,
+        pub suppress_manual_focus: Cell<bool>,
         pub flash_generation: Cell<u64>,
         pub flash_process: RefCell<Option<gio::Subprocess>>,
         pub hdr_generation: Cell<u64>,
@@ -118,6 +120,8 @@ mod imp {
         pub exposure_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub auto_exposure_switch: TemplateChild<gtk::Switch>,
+        #[template_child]
+        pub focus_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub shutter_scale: TemplateChild<gtk::Scale>,
         #[template_child]
@@ -378,6 +382,51 @@ mod imp {
                 ));
             }
             obj.update_manual_exposure_controls();
+            self.focus_scale.connect_value_changed(glib::clone!(
+                #[weak]
+                obj,
+                move |_| {
+                    if !obj.imp().suppress_manual_focus.get() {
+                        obj.queue_manual_focus();
+                    }
+                }
+            ));
+
+            let focus_gesture = gtk::GestureClick::new();
+            focus_gesture.set_button(gdk::BUTTON_PRIMARY);
+            focus_gesture.set_propagation_phase(gtk::PropagationPhase::Capture);
+            focus_gesture.connect_released(glib::clone!(
+                #[weak]
+                obj,
+                move |_, n_press, x, y| {
+                    if n_press != 1 || obj.imp().bottom_sheet.is_open() {
+                        return;
+                    }
+
+                    let viewfinder = &*obj.imp().viewfinder;
+                    if let Some(picked) = obj.pick(x, y, gtk::PickFlags::DEFAULT)
+                        && is_focus_control(&picked)
+                    {
+                        return;
+                    }
+
+                    let point =
+                        obj.compute_point(viewfinder, &graphene::Point::new(x as f32, y as f32));
+                    let Some(point) = point else {
+                        return;
+                    };
+                    if point.x() < 0.0
+                        || point.y() < 0.0
+                        || point.x() >= viewfinder.width() as f32
+                        || point.y() >= viewfinder.height() as f32
+                    {
+                        return;
+                    }
+                    viewfinder.focus_at_point(point.x() as f64, point.y() as f64);
+                }
+            ));
+            obj.add_controller(focus_gesture);
+
             self.zoom_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
@@ -922,6 +971,34 @@ impl Camera {
         }
     }
 
+    fn clear_manual_focus_state(&self) {
+        if let Some(handler) = self.imp().manual_focus_handler.take() {
+            handler.remove();
+        }
+    }
+
+    fn queue_manual_focus(&self) {
+        self.clear_manual_focus_state();
+        let handler = glib::timeout_add_local_once(
+            Duration::from_millis(80),
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    camera.imp().manual_focus_handler.take();
+                    camera.apply_manual_focus();
+                }
+            ),
+        );
+        self.imp().manual_focus_handler.replace(Some(handler));
+    }
+
+    fn apply_manual_focus(&self) {
+        self.imp()
+            .viewfinder
+            .set_manual_focus(self.imp().focus_scale.value());
+    }
+
     fn update_manual_exposure_controls(&self) {
         let manual = !self.imp().auto_exposure_switch.is_active();
         self.imp().shutter_scale.set_sensitive(manual);
@@ -1042,8 +1119,12 @@ impl Camera {
 
     fn reset_image_controls(&self) {
         let imp = self.imp();
+        self.clear_manual_focus_state();
+        imp.suppress_manual_focus.set(true);
         if let Some(camera) = imp.viewfinder.camera() {
             self.set_image_control_defaults(&camera);
+            imp.viewfinder.set_auto_focus();
+            imp.suppress_manual_focus.set(false);
             return;
         }
 
@@ -1051,10 +1132,12 @@ impl Camera {
         imp.auto_exposure_switch.set_active(true);
         imp.shutter_scale.set_value(8333.0);
         imp.gain_scale.set_value(1.0);
-        imp.saturation_scale.set_value(1.25);
-        imp.contrast_scale.set_value(1.05);
+        imp.saturation_scale.set_value(1.35);
+        imp.contrast_scale.set_value(1.10);
         imp.sharpness_scale.set_value(1.0);
+        imp.focus_scale.set_value(1.0);
         imp.zoom_scale.set_value(1.0);
+        imp.suppress_manual_focus.set(false);
         self.queue_image_adjustments();
     }
 
@@ -1074,11 +1157,12 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 12] = [
+        let controls: [&gtk::Widget; 13] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
             imp.gain_scale.upcast_ref(),
+            imp.focus_scale.upcast_ref(),
             imp.saturation_scale.upcast_ref(),
             imp.contrast_scale.upcast_ref(),
             imp.sharpness_scale.upcast_ref(),
@@ -1095,6 +1179,11 @@ impl Camera {
             self.update_manual_exposure_controls();
             self.update_flash_availability();
             self.update_hdr_availability();
+            let rear_camera =
+                self.imp().viewfinder.camera().is_some_and(|camera| {
+                    matches!(camera.location(), aperture::CameraLocation::Back)
+                });
+            imp.focus_scale.set_sensitive(rear_camera);
         }
     }
 
@@ -1340,6 +1429,7 @@ impl Camera {
     fn set_image_control_defaults(&self, camera: &aperture::Camera) {
         let imp = self.imp();
         let (contrast, saturation) = image_control_defaults(&camera.display_name());
+        let rear_camera = matches!(camera.location(), aperture::CameraLocation::Back);
 
         imp.exposure_scale.set_value(0.0);
         imp.auto_exposure_switch.set_active(true);
@@ -1348,6 +1438,10 @@ impl Camera {
         imp.saturation_scale.set_value(saturation);
         imp.contrast_scale.set_value(contrast);
         imp.sharpness_scale.set_value(1.0);
+        let suppressed = imp.suppress_manual_focus.replace(true);
+        imp.focus_scale.set_value(1.0);
+        imp.suppress_manual_focus.set(suppressed);
+        imp.focus_scale.set_sensitive(rear_camera);
         imp.zoom_scale.set_value(1.0);
         self.queue_image_adjustments();
     }
@@ -1492,14 +1586,31 @@ fn format_zoom_label(zoom: f64) -> String {
 
 fn image_control_defaults(camera_name: &str) -> (f64, f64) {
     let model = camera_name.to_ascii_lowercase();
-    if model.contains("imx371") {
-        (1.10, 1.25)
-    } else if model.contains("imx376") {
-        (1.05, 1.15)
+    if model.contains("imx371") || model.contains("imx376") || model.contains("imx519") {
+        // Keep the application controls aligned with the simple-IPA tuning
+        // shipped for all three OnePlus 6T sensors. Older UI defaults here
+        // silently overrode that tuning and made photos look washed out.
+        (1.10, 1.35)
     } else {
-        // IMX519, and a conservative fallback for other colour sensors.
-        (1.05, 1.25)
+        // A modest generic fallback for other colour sensors.
+        (1.10, 1.25)
     }
+}
+
+fn is_focus_control(widget: &gtk::Widget) -> bool {
+    let mut current = Some(widget.clone());
+    while let Some(widget) = current {
+        if widget.is::<gtk::Button>()
+            || widget.is::<gtk::MenuButton>()
+            || widget.is::<gtk::Scale>()
+            || widget.is::<gtk::Switch>()
+            || widget.is::<gtk::ToggleButton>()
+        {
+            return true;
+        }
+        current = widget.parent();
+    }
+    false
 }
 
 fn flash_helper_available() -> bool {
@@ -1539,14 +1650,14 @@ mod tests {
 
     #[test]
     fn sensor_defaults_are_selected_for_all_phone_cameras() {
-        assert_eq!(image_control_defaults("Sony IMX371 Main"), (1.10, 1.25));
-        assert_eq!(image_control_defaults("Sony IMX376 Front"), (1.05, 1.15));
-        assert_eq!(image_control_defaults("Sony IMX519 Wide"), (1.05, 1.25));
+        assert_eq!(image_control_defaults("Sony IMX371 Main"), (1.10, 1.35));
+        assert_eq!(image_control_defaults("Sony IMX376 Front"), (1.10, 1.35));
+        assert_eq!(image_control_defaults("Sony IMX519 Wide"), (1.10, 1.35));
     }
 
     #[test]
     fn unknown_camera_uses_conservative_defaults() {
-        assert_eq!(image_control_defaults("USB Webcam"), (1.05, 1.25));
+        assert_eq!(image_control_defaults("USB Webcam"), (1.10, 1.25));
     }
 
     #[test]

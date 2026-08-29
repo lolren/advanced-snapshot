@@ -39,6 +39,13 @@ saving a frame while the lens is between scan positions. The wait is bounded
 and best-effort, so fixed-focus cameras and older PipeWire stacks retain the
 normal capture path.
 
+On the OnePlus 6T, **Image Controls → Manual focus position** sends the
+standard `LensPosition` control through the installed helper. Use 0 for the far
+end and 2 for the near end; the slider is disabled for the fixed-focus front
+camera. A preview tap returns to one-shot autofocus, and **Reset** returns to
+continuous autofocus. If the control is missing, the UI remains usable and
+logs the unavailable capability instead of writing raw V4L2 values.
+
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes

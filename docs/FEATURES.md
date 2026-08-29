@@ -11,7 +11,8 @@ camera stack” must always agree.
 | Preview quality and latency | Restricts the live pipeline to a selected supported 720p-class mode before using a ratio-checked 1080p fallback; still capture remains independently bounded at 2048x1536. Each preview branch keeps one buffer, drops old buffers downstream when the consumer falls behind, and the live sink does not wait for an already-late clock timestamp | Preview caps containing a suitable 640x480–1280x720 mode; GStreamer `queue` and sink QoS | When concrete modes are advertised, the negotiated preview contains only the selected mode and is no taller than 720 pixels; the viewfinder remains near the newest camera timestamp under load |
 | Video capture | Inherited recording flow, timer and duration indicator; shutter and page lifecycle remain gated until `video-done`, and invalid empty outputs are rejected before gallery insertion | Working encoder/muxer and stable preview | Playable file, monotonic duration, clean stop, no duplicate stop request during finalization or page navigation |
 | Tap-to-focus | Preview gesture, oriented crop mapping and an amber/green/red result reticle | `AfMode`, `AfMetering`, `AfWindows`, `AfTrigger` plus generation-correlated `AfState` transport | Rear lens moves; green is shown only for `Focused`, red for `Failed`/transport error |
-| Continuous focus | Return to whole-frame monitoring after a tap | Stable continuous AF implementation | No lens sweep on Reset and no stable-scene hunting |
+| Manual rear focus | Debounced 0–2 `LensPosition` slider; selected actuator position is held until the next tap, Reset or camera switch | `AfModeManual` plus `LensPosition` | Rear lens metadata follows the requested position; fixed-focus cameras disable the control |
+| Continuous focus | Return to whole-frame monitoring after Reset | Stable continuous AF implementation | Reset restores continuous mode without a forced scan; no stable-scene hunting |
 | Fixed focus | No focus affordance | Camera advertises no AF controls | Front stream works; focus request reports unsupported |
 | Exposure | -1..+1 EV UI | Standard `ExposureValue` | Metadata echoes request and pixels move unless sensor-limited |
 | Manual shutter and gain | Automatic-exposure switch plus shutter-time and analogue-gain controls | `ExposureTimeMode`, `ExposureTime`, `AnalogueGainMode` and `AnalogueGain` with valid sensor ranges | Manual requests persist for subsequent frames; switching automatic mode restores statistics-driven regulation |
@@ -41,7 +42,7 @@ is installed. The OnePlus 6T package uses a 2.5-second pulse at level 32; the
 helper halves the requested level for the yellow LED channel and restores both
 channels after a normal or interrupted pulse.
 
-The installed OnePlus 6T r24/r7 stack and Advanced Snapshot r4 pass the
+The installed OnePlus 6T r28/r7 stack and current Advanced Snapshot source pass the
 non-image lower-layer, package-launch, generation-correlated autofocus and live
 pinch-zoom checks. The application deliberately rejects focus-result mode on
 an older transport rather than treating an accepted request as optical

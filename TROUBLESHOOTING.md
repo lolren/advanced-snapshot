@@ -15,8 +15,15 @@ Advanced Snapshot exclusively uses [PipeWire](https://gitlab.freedesktop.org/pip
 Please restart PW to ensure all camera devices are found:
 
 ```
-systemctl --user restart pipewire wireplumber
+systemctl --user restart pipewire.service
+systemctl --user restart wireplumber.service
 ```
+
+On pMOS, keep the socket active while restarting the two services separately.
+Stopping `pipewire.socket`, `pipewire.service` and `wireplumber.service` in a
+single transaction can report `job canceled` and leave a stale camera link;
+the two commands above clear that state without a reboot. Close camera apps
+before doing it.
 
 A useful tool to look up information from PW is `pw-dump`. In order to check whether PW currently recognizes any camera devices, run:
 

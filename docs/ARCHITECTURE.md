@@ -21,6 +21,16 @@ inverse libcamera orientation, then converted into a sensor-coordinate
 `AfWindows` rectangle. The helper discovers PipeWire control IDs dynamically
 and submits mode, metering, window and trigger atomically.
 
+Rear manual focus follows the same boundary. The UI exposes a normalized
+`LensPosition` value from 0 to 2, the helper discovers the control ID at
+runtime, and the simple IPA maps that public range onto the measured safe
+400–800 actuator span. The IPA publishes the normalized position in result
+metadata so a caller can verify that the request reached the lens. This range
+is intentionally documented as a device tuning contract, not a factory
+calibrated object-distance measurement. Manual mode cancels a running scan and
+holds the lens; Reset submits the existing scan-free continuous-focus reset.
+The fixed-focus front camera exposes neither the control nor the UI affordance.
+
 The current helper is intentionally a separate C process because Snapshot 50.0
 does not expose generic PipeWire camera controls through Aperture. The patched
 PipeWire libcamera SPA publishes three namespaced, read-only node properties:
@@ -37,6 +47,8 @@ keeps the reticle amber while waiting, changes it to green only for `focused`,
 and uses red for `failed` or an infrastructure error. A new tap terminates the
 previous helper and generation checks suppress every stale callback. The
 fixed-focus front camera publishes no AF state and receives no focus gesture.
+A tap leaves one-shot autofocus locked at the chosen position; it does not
+schedule a delayed movement that could blur the subsequent still.
 
 ## Software HDR
 

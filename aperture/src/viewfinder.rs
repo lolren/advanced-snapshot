@@ -107,11 +107,11 @@ mod imp {
 
         pub timeout_handler: RefCell<Option<glib::SourceId>>,
         pub focus_indicator_handler: RefCell<Option<glib::SourceId>>,
-        pub focus_reset_handler: RefCell<Option<glib::SourceId>>,
         pub focus_point: Cell<Option<(f64, f64)>>,
         pub(super) focus_indicator_state: Cell<FocusIndicatorState>,
         pub focus_generation: Cell<u64>,
         pub focus_process: RefCell<Option<gio::Subprocess>>,
+        pub manual_focus_active: Cell<bool>,
         pub adjustment_generation: Cell<u64>,
         pub adjustment_process: RefCell<Option<gio::Subprocess>>,
         pub exposure_generation: Cell<u64>,
@@ -172,12 +172,10 @@ mod imp {
             if let Some(handler) = self.focus_indicator_handler.take() {
                 handler.remove();
             }
-            if let Some(handler) = self.focus_reset_handler.take() {
-                handler.remove();
-            }
             if let Some(process) = self.focus_process.take() {
                 process.force_exit();
             }
+            self.manual_focus_active.set(false);
             self.focus_point.set(None);
             self.focus_indicator_state
                 .set(FocusIndicatorState::Scanning);
@@ -490,15 +488,6 @@ mod imp {
             self.overlay.add_overlay(&self.focus_overlay);
             self.overlay.set_parent(&*obj);
 
-            let focus_gesture = gtk::GestureClick::new();
-            focus_gesture.set_button(gdk::BUTTON_PRIMARY);
-            focus_gesture.connect_released(glib::clone!(
-                #[weak]
-                obj,
-                move |_, _, x, y| obj.focus_at(x, y)
-            ));
-            obj.add_controller(focus_gesture);
-
             self.tee.set(tee).unwrap();
 
             let devices = crate::DeviceProvider::instance();
@@ -735,7 +724,7 @@ impl Viewfinder {
         }
     }
 
-    fn focus_at(&self, widget_x: f64, widget_y: f64) {
+    pub fn focus_at_point(&self, widget_x: f64, widget_y: f64) {
         if !matches!(self.state(), ViewfinderState::Ready) {
             return;
         }
@@ -756,6 +745,7 @@ impl Viewfinder {
 
         let imp = self.imp();
         imp.clear_focus_state();
+        imp.manual_focus_active.set(false);
         let generation = imp.focus_generation.get();
 
         let widget_width = self.width().max(1) as f64;
@@ -831,7 +821,126 @@ impl Viewfinder {
                     Some(FocusResult::Failed) | None => FocusIndicatorState::Failed,
                 };
                 viewfinder.complete_focus_indicator(generation, serial, indicator_state);
-                viewfinder.schedule_focus_reset(generation, serial);
+            }
+        ));
+    }
+
+    /// Sets a fixed rear-lens position in the public normalized 0..2 range.
+    ///
+    /// The matching simple-IPA implementation maps this range to the
+    /// actuator's measured safe span. A manual request cancels any pending
+    /// tap scan and deliberately stays locked until the next tap, camera
+    /// change or stream teardown.
+    pub fn set_manual_focus(&self, lens_position: f64) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(camera) = self.camera() else {
+            return;
+        };
+        if !matches!(camera.location(), crate::CameraLocation::Back) {
+            return;
+        }
+        let Some(serial) = camera.target_object() else {
+            log::debug!("Manual focus unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_focus_state();
+        imp.manual_focus_active.set(true);
+        let generation = imp.focus_generation.get();
+        let arguments = [
+            serial.to_string(),
+            format!("{:.4}", lens_position.clamp(0.0, 2.0)),
+        ];
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("lens"),
+            OsStr::new(&arguments[0]),
+            OsStr::new(&arguments[1]),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start manual-focus helper: {err}");
+                imp.manual_focus_active.set(false);
+                return;
+            }
+        };
+        imp.focus_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.focus_generation.get() != generation {
+                    return;
+                }
+                imp.focus_process.take();
+                if let Err(err) = result {
+                    imp.manual_focus_active.set(false);
+                    log::debug!("Manual focus was not applied: {err}");
+                }
+            }
+        ));
+    }
+
+    /// Restores continuous autofocus without forcing a full actuator scan.
+    ///
+    /// This is used by the image-control reset action after a manual slider
+    /// adjustment. Tapping the preview also switches back to one-shot AF and
+    /// therefore remains an independent way to replace a manual lock.
+    pub fn set_auto_focus(&self) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(camera) = self.camera() else {
+            return;
+        };
+        if !matches!(camera.location(), crate::CameraLocation::Back) {
+            return;
+        }
+        let Some(serial) = camera.target_object() else {
+            log::debug!("Automatic focus unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_focus_state();
+        let generation = imp.focus_generation.get();
+        let serial_arg = serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("reset"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::debug!("Could not restore continuous autofocus: {err}");
+                return;
+            }
+        };
+        imp.focus_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.focus_generation.get() != generation {
+                    return;
+                }
+                imp.focus_process.take();
+                if let Err(err) = result {
+                    log::debug!("Could not restore continuous autofocus: {err}");
+                }
             }
         ));
     }
@@ -869,6 +978,10 @@ impl Viewfinder {
         }
         if self.imp().focus_process.borrow().is_some() {
             log::debug!("Timed out waiting for the in-flight tap-to-focus request");
+            return;
+        }
+
+        if self.imp().manual_focus_active.get() {
             return;
         }
 
@@ -983,56 +1096,6 @@ impl Viewfinder {
             ),
         );
         imp.focus_indicator_handler.replace(Some(indicator_handler));
-    }
-
-    fn schedule_focus_reset(&self, generation: u64, serial: u64) {
-        let imp = self.imp();
-        if imp.focus_generation.get() != generation
-            || self.camera().and_then(|camera| camera.target_object()) != Some(serial)
-        {
-            return;
-        }
-
-        let reset_handler = glib::timeout_add_seconds_local_once(
-            8,
-            glib::clone!(
-                #[weak(rename_to = viewfinder)]
-                self,
-                move || {
-                    viewfinder.imp().focus_reset_handler.take();
-                    if viewfinder
-                        .camera()
-                        .and_then(|camera| camera.target_object())
-                        == Some(serial)
-                    {
-                        viewfinder.reset_focus(serial);
-                    }
-                }
-            ),
-        );
-        imp.focus_reset_handler.replace(Some(reset_handler));
-    }
-
-    fn reset_focus(&self, serial: u64) {
-        let serial_arg = serial.to_string();
-        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
-        let process = match launcher.spawn(&[
-            OsStr::new(FOCUS_HELPER),
-            OsStr::new("reset"),
-            OsStr::new(&serial_arg),
-        ]) {
-            Ok(process) => process,
-            Err(err) => {
-                log::debug!("Could not restore continuous autofocus: {err}");
-                return;
-            }
-        };
-
-        glib::spawn_future_local(async move {
-            if let Err(err) = process.wait_check_future().await {
-                log::debug!("Could not restore continuous autofocus: {err}");
-            }
-        });
     }
 
     /// Applies software-ISP image adjustments to the active camera.
@@ -1562,6 +1625,7 @@ impl Viewfinder {
         // Invalidate any in-flight asynchronous PLAYING request before
         // changing the GStreamer state.  This ordering is the important part:
         // the pending future may finish at any time after this call returns.
+        imp.clear_focus_state();
         let generation = imp.request_stream_stop();
         imp.clear_image_adjustment_state();
         imp.clear_exposure_state();

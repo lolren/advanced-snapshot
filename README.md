@@ -24,6 +24,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Serialized camera lifecycle | Coalesces duplicate starts, waits for camerabin to reach NULL before camera/source reconfiguration, and invalidates stale asynchronous starts during stop, teardown or recovery | Implemented; protects libcamera/PipeWire stream ownership |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
+| Manual rear focus | Exposes the simple-IPA `LensPosition` range as a debounced 0–2 slider; the selected position is held until the next tap, reset or camera switch | Implemented on the OnePlus 6T rear modules; fixed-focus front is disabled |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source; requires the matching libcamera simple-IPA patch and phone acceptance |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
@@ -46,15 +47,21 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Tap a subject in the rear-camera preview to request focus there. The square
   is amber while the request is pending, green only after focus metadata says
   `Focused`, and red after an optical or transport failure.
+- Open **Image Controls → Manual focus position** to hold a rear lens at a
+  chosen normalized position from 0 (far end) to 2 (near end). Moving the
+  slider cancels continuous autofocus and applies the real actuator position;
+  tap the preview to replace it with one-shot autofocus, or press **Reset** to
+  restore continuous autofocus. The control is unavailable on the fixed-focus
+  front camera.
 - Still capture waits for the active rear autofocus scan to settle before
   exposing the sensor. A failed or unavailable focus result is logged and the
   capture continues with the last stable lens position.
 - Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
   value chip and the **Main Menu → Image Controls → Zoom** slider stay in sync.
   Tap the value chip to return directly to 1x.
-- Open **Image Controls** for exposure compensation, colour saturation,
-  contrast and detail. **Reset** restores the sensor-aware defaults and 1x
-  zoom.
+- Open **Image Controls** for exposure compensation, manual focus, colour
+  saturation, contrast and detail. **Reset** restores the sensor-aware tone
+  defaults, continuous autofocus and 1x zoom.
 - Enable **Software HDR** to capture a dark, normal and bright frame and merge
   them into one JPEG. It requires automatic exposure; the three frames are
   intentionally captured without hardware flash. Small whole-frame shifts are
@@ -105,11 +112,12 @@ advanced-snapshot-hdr --output merged.jpg \
   --input dark.jpg --input normal.jpg --input bright.jpg
 ```
 
-The installed OnePlus 6T baseline is kernel r8, libcamera/IPA r24, PipeWire
-libcamera SPA r7, Advanced Snapshot r4 and postmarketOS edge. The signed r7/r4
-generation passed a coherent offline installation, all-sensor stream test,
-correlated rear-focus result test, fixed-focus front fallback, packaged D-Bus
-launch and a compositor-level live-pinch trace from 1.0x to 3.0x.
+The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r28,
+PipeWire libcamera SPA r7 and postmarketOS edge. The current app package is the
+source-built r16 development line. The lower layer passes all-sensor stream
+tests, correlated rear-focus results, fixed-focus front fallback and the
+manual lens-position sweep; saved-photo colour and UI acceptance remain
+device-scene checks rather than a claim of Android vendor parity.
 Generic webcams still use the inherited Snapshot paths; phone-specific
 controls degrade safely when absent.
 
@@ -150,6 +158,18 @@ patch or activate an untested dependency update on the phone. See
 [docs/UPSTREAM.md](docs/UPSTREAM.md).
 
 ## Project status
+
+The current camera-quality line adds a real rear manual-focus control and
+capture barrier to the existing tap-focus path. A tap is handled by a capture-
+phase gesture on the Camera ancestor, so the full-screen controls overlay cannot
+steal it; the request maps the displayed point through the preview crop and
+orientation, waits for the correlated autofocus result, and leaves the lens at
+the selected focus instead of starting a delayed reset scan. The manual slider
+uses the same PipeWire helper and the standard `LensPosition` control. Reset
+explicitly returns to continuous autofocus. IMX371, IMX376 and IMX519 startup
+tone defaults are aligned with the lower-layer tuning (contrast 1.10,
+saturation 1.35); this is a conservative software-ISP improvement, not a
+calibrated colour-science or vendor-ISP result.
 
 The independently named r4 build is installed beside `snapshot-50.0-r3`.
 Truthful focus-result handling, its matching PipeWire transport and synchronized

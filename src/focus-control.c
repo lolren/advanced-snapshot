@@ -28,6 +28,7 @@
 
 enum operation {
 	OPERATION_FOCUS,
+	OPERATION_MANUAL_FOCUS,
 	OPERATION_WAIT_FOCUS,
 	OPERATION_RESET,
 	OPERATION_ADJUST,
@@ -67,6 +68,7 @@ struct app {
 	double focus_x;
 	double focus_y;
 	double focus_size;
+	double lens_position;
 	double exposure_value;
 	double saturation;
 	double contrast;
@@ -78,6 +80,7 @@ struct app {
 	uint32_t af_trigger_id;
 	uint32_t af_metering_id;
 	uint32_t af_windows_id;
+	uint32_t lens_position_id;
 	uint32_t exposure_value_id;
 	uint32_t saturation_id;
 	uint32_t contrast_id;
@@ -298,6 +301,11 @@ static int apply_controls(struct app *app)
 		/* AfModeContinuous and AfMeteringAuto. */
 		add_int_property(&builder, app->af_mode_id, 2);
 		add_int_property(&builder, app->af_metering_id, 0);
+	} else if (app->operation == OPERATION_MANUAL_FOCUS) {
+		/* AfModeManual and the public 0..2 lens-position range. */
+		add_int_property(&builder, app->af_mode_id, 0);
+		add_float_property(&builder, app->lens_position_id,
+				   (float)app->lens_position);
 	} else if (app->operation == OPERATION_ADJUST) {
 		add_float_property(&builder, app->exposure_value_id,
 				   (float)app->exposure_value);
@@ -393,6 +401,8 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->af_metering_id = control_id;
 	else if (spa_streq(description, "AfWindows"))
 		app->af_windows_id = control_id;
+	else if (spa_streq(description, "LensPosition"))
+		app->lens_position_id = control_id;
 	else if (spa_streq(description, "ExposureValue"))
 		app->exposure_value_id = control_id;
 	else if (spa_streq(description, "Saturation"))
@@ -554,6 +564,11 @@ static void core_done(void *data, uint32_t id, int seq)
 			       "camera stack does not expose autofocus results");
 			return;
 		}
+		if (app->operation == OPERATION_MANUAL_FOCUS &&
+		    (app->af_mode_id == 0 || app->lens_position_id == 0)) {
+			finish(app, 3, "camera does not support manual focus");
+			return;
+		}
 		if (app->operation == OPERATION_ADJUST &&
 		    (app->exposure_value_id == 0 || app->saturation_id == 0 ||
 		     app->contrast_id == 0 || app->sharpness_id == 0)) {
@@ -641,12 +656,13 @@ static void usage(const char *program)
 {
 	fprintf(stderr,
 		"usage: %s focus SERIAL X Y SIZE\n"
+		"       %s lens SERIAL POSITION\n"
 		"       %s wait SERIAL\n"
 		"       %s reset SERIAL\n"
 		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n"
 		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
 		"       %s auto SERIAL\n",
-		program, program, program, program, program, program);
+		program, program, program, program, program, program, program);
 }
 
 int main(int argc, char **argv)
@@ -668,6 +684,11 @@ int main(int argc, char **argv)
 			return 2;
 		}
 		app.operation = OPERATION_FOCUS;
+	} else if (argc == 4 && spa_streq(argv[1], "lens") &&
+		   parse_uint64(argv[2], &app.target_serial) &&
+		   parse_double(argv[3], &app.lens_position) &&
+		   app.lens_position >= 0.0 && app.lens_position <= 2.0) {
+		app.operation = OPERATION_MANUAL_FOCUS;
 	} else if (argc == 3 && spa_streq(argv[1], "wait") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_WAIT_FOCUS;
