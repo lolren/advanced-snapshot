@@ -1,5 +1,45 @@
 # Validation record
 
+## 0.1.0-r16 OnePlus 6T manual-focus checkpoint
+
+- Date: 2026-08-29
+- Source commit: `51139b2df475fa34a7e798452fcda0fac184b3a1`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r28 and PipeWire libcamera SPA r7
+- Main APK: `advanced-snapshot-0.1.0_p20260829215222-r16.apk`
+  (`46cc19ac583d3ba84fcd400b3e1be4506f583eee404cce11dc8312acea85408d`)
+- Language APK:
+  `advanced-snapshot-lang-0.1.0_p20260829215222-r16.apk`
+  (`3da06127a14216a2463b4454ade32c5d239f03c53cd4d501ac0713e3a1084f9e`)
+
+The exact AArch64 pair was built in the isolated pmbootstrap buildroot and
+installed on the reference phone without reboot. `cargo fmt --all -- --check`,
+the C helper syntax check, shell syntax checks and the package build passed.
+
+The native all-sensor regression returned:
+
+```text
+main|serial=103|tap_result=focused|post_reset_metrics=183|restarts=0|lens_requests=0
+secondary|serial=105|tap_result=focused|post_reset_metrics=239|restarts=0|lens_requests=0
+front|serial=101|frames=120|focus_status=unsupported
+RESULT|pass|rear_stability_seconds=60
+```
+
+The serials are ephemeral runtime evidence and must not be copied into a
+recipe or script. The two rear sensors also accepted direct manual positions
+0.0, 1.0 and 2.0; the matching Waydroid Camera2 probe observed result ranges
+`[0.000,2.000]` with delta `2.000` for both rear IDs and correctly marked the
+front fixed-focus camera unsupported. Its tap-focus profile reported terminal
+states `[3,4]` and non-empty AF regions for both rear IDs.
+
+This checkpoint proves control transport, actuator movement and lifecycle
+stability. It does not prove factory dioptre calibration, Android-vendor colour
+tuning, saved-photo parity or touchscreen acceptance; those require a
+well-lit, repeatable scene and remain separate gates. The installed production
+tuning is intentionally conservative: gamma 2.0/2.1/2.2, contrast 1.10 and
+saturation 1.35 for IMX371/IMX376/IMX519, with identity CCMs because no colour
+chart or flat-field calibration was available.
+
 ## 0.1.0 capture-output and zoom-safety checkpoint
 
 - Date: 2026-08-26

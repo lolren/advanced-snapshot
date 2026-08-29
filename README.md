@@ -26,7 +26,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Manual rear focus | Exposes the simple-IPA `LensPosition` range as a debounced 0–2 slider; the selected position is held until the next tap, reset or camera switch | Implemented on the OnePlus 6T rear modules; fixed-focus front is disabled |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
-| Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source; requires the matching libcamera simple-IPA patch and phone acceptance |
+| Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source and lower-layer package; sensor-scene acceptance remains separate |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
@@ -157,6 +157,22 @@ branch before it replaces the known-good base. Never force a rejected camera
 patch or activate an untested dependency update on the phone. See
 [docs/UPSTREAM.md](docs/UPSTREAM.md).
 
+## Current OnePlus 6T acceptance
+
+The current AArch64 package was built from commit
+`51139b2df475fa34a7e798452fcda0fac184b3a1` and installed on the connected
+OnePlus 6T without reboot. The main APK is
+`advanced-snapshot-0.1.0_p20260829215222-r16.apk` with SHA-256
+`46cc19ac583d3ba84fcd400b3e1be4506f583eee404cce11dc8312acea85408d`; the
+language package SHA-256 is
+`3da06127a14216a2463b4454ade32c5d239f03c53cd4d501ac0713e3a1084f9e`.
+
+With libcamera/IPA r28 and PipeWire SPA r7, both rear modules pass the native
+focus helper regression and the all-camera Waydroid probe. Manual rear focus
+is a normalized 0–2 device range, not a factory-calibrated distance scale.
+Saved-photo colour/quality comparison against a controlled chart and Android
+vendor processing remains an explicit acceptance gate.
+
 ## Project status
 
 The current camera-quality line adds a real rear manual-focus control and
@@ -218,10 +234,13 @@ intermittent `not-negotiated`, allocator or stream-drain errors during rapid
 open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
-The current r16 source is commit `2c93c2f` and includes the same lifecycle guard
-plus the camerabin NULL barrier and GStreamer state-tuple compatibility fix.
+The current r16 source is commit
+`51139b2df475fa34a7e798452fcda0fac184b3a1` and includes the same lifecycle
+guard plus the camerabin NULL barrier, GStreamer state-tuple compatibility fix,
+rear manual-focus slider and explicit return to continuous autofocus.
 Its postmarketOS AArch64 pair was built from the pinned source and installed on
-the connected OnePlus 6T without reboot. Visual preview, still, video and
+the connected OnePlus 6T without reboot. The native focus path and lower-layer
+manual range are live-tested; visual preview, saved still, video and physical
 touchscreen acceptance remain separate device gates.
 
 No photograph, raw frame, device identifier, account credential, proprietary
