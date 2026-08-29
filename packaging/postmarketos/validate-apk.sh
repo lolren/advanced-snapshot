@@ -10,7 +10,8 @@ advanced_apk=$1
 snapshot_apk=${2-}
 lang_apk=${3-}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-key_dir=$script_dir/../keys
+key_dir=${APK_KEY_DIR:-$script_dir/../keys}
+key_file=${APK_KEY_FILE:-$key_dir/pmos@local-6a8b0868.rsa.pub}
 apk_verify_tool=${APK_VERIFY_TOOL:-apk}
 
 for command_name in \
@@ -55,7 +56,7 @@ if ! command -v "$apk_verify_tool" >/dev/null 2>&1; then
 	exit 2
 fi
 
-if [ ! -f "$key_dir/pmos@local-6a8b0868.rsa.pub" ]; then
+if [ ! -f "$key_file" ]; then
 	printf 'missing packaged public verification key\n' >&2
 	exit 2
 fi

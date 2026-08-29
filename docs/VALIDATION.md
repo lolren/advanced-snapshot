@@ -751,3 +751,29 @@ with GNOME Snapshot. r15 is source- and package-validated but remains an
 opt-in candidate: it has not been installed or image-quality accepted on the
 reference phone while that phone exposes no usable SSH session. Keep r14 and
 the retained device-accepted application package available for rollback.
+
+## Advanced Snapshot r16 lifecycle package checkpoint
+
+- Date: 2026-08-29
+- Source commit: `2c93c2fd094ad3011b9466ab5fc0779fda566cce`
+- Recipe revision: `advanced-snapshot-0.1.0-r16`
+- GitHub source archive SHA-512:
+  `6d6086b5709cf4dc7df5c7ceeaa0bd09b76dfc4c91c0091d624c74519acce92dd83159dd3578fbf454294f62a229d151383994dec6fed45127b4c28d0c9a2145`
+
+The r16 source includes the serialized viewfinder lifecycle, the camerabin
+NULL teardown barrier and the GStreamer Rust state-tuple compatibility fix.
+The clean postmarketOS edge AArch64 build completed in an offline pmbootstrap
+work directory. The package pair was installed on the connected OnePlus 6T
+without reboot; it is a local development build signed by the pmbootstrap
+workstation key, not a public release signed by the repository key.
+
+```text
+advanced-snapshot-0.1.0-r16.apk: 4e2926bdaf40fc7f600095b52591c0be08edddbdb9a86527533d11e2f2a45904
+advanced-snapshot-lang-0.1.0-r16.apk: d6153444970592d041c6ee6d81048dc84d6d323906a1facc879d0603ccc4c1b0
+pmbootstrap signing key: pmos@local-6a92d930
+```
+
+The package contains the independent Advanced Snapshot binary, focus helper,
+HDR helper and resource namespace. Touchscreen preview latency, saved-photo,
+video and image-quality acceptance remain open; keep the distro Snapshot
+package available as the rollback path.

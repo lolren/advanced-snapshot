@@ -194,6 +194,12 @@ intermittent `not-negotiated`, allocator or stream-drain errors during rapid
 open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
+The current r16 source is commit `2c93c2f` and includes the same lifecycle guard
+plus the camerabin NULL barrier and GStreamer state-tuple compatibility fix.
+Its postmarketOS AArch64 pair was built from the pinned source and installed on
+the connected OnePlus 6T without reboot. Visual preview, still, video and
+touchscreen acceptance remain separate device gates.
+
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
 
