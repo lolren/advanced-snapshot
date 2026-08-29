@@ -1362,13 +1362,13 @@ impl Viewfinder {
             camerabin,
             move || {
                 let timeout = gst::format::ClockTime::from_seconds(CAMERA_STATE_TIMEOUT);
-                let state = camerabin
-                    .state(Some(timeout))
-                    .ok()
-                    .map(|(change_done, current_state, _pending_state)| {
+                let (change_result, current_state, _pending_state) = camerabin.state(Some(timeout));
+                let state = match change_result {
+                    Ok(change_done) => {
                         change_done != gst::StateChangeSuccess::Async && current_state == expected
-                    })
-                    .unwrap_or(false);
+                    }
+                    Err(_) => false,
+                };
                 let _ = sender.send(state);
             }
         ));
