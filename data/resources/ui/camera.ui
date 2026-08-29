@@ -518,6 +518,24 @@
                             </style>
                           </object>
                         </child>
+                        <child type="overlay">
+                          <object class="GtkButton" id="image_controls_overlay_button">
+                            <property name="label" translatable="yes">Controls</property>
+                            <property name="halign">end</property>
+                            <property name="valign">start</property>
+                            <property name="margin-top">18</property>
+                            <property name="margin-end">18</property>
+                            <property name="focus-on-click">False</property>
+                            <property name="tooltip-text" translatable="yes">Open Image Controls</property>
+                            <property name="accessible-label" translatable="yes">Open Image Controls</property>
+                            <property name="action-name">win.image-controls</property>
+                            <style>
+                              <class name="image-controls-entry" />
+                              <class name="pill" />
+                              <class name="osd" />
+                            </style>
+                          </object>
+                        </child>
                         <child>
                           <object class="FlashBin" id="flash_bin">
                             <child>

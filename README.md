@@ -17,7 +17,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Feature | What it brings | Status |
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
-| Always-visible image-controls entry | Puts a labelled **Controls** button beside the shutter, camera switch and gallery controls so the adjustment sheet is discoverable without opening the hamburger menu | Implemented |
+| Always-visible image-controls entry | Puts a labelled **Controls** button in the preview overlay so the adjustment sheet stays discoverable on every phone orientation and breakpoint without opening the hamburger menu | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
 | Capture failure handling | Rejects missing, empty, directory and non-local still outputs before gallery insertion | Implemented |
 | Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented in source; phone acceptance pending |
@@ -48,7 +48,7 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Tap a subject in the rear-camera preview to request focus there. The square
   is amber while the request is pending, green only after focus metadata says
   `Focused`, and red after an optical or transport failure.
-- Press the labelled **Controls** button in the camera control bar (the
+- Press the labelled **Controls** button in the preview overlay (the
   hamburger menu keeps **Image Controls** as a fallback), then use **Manual
   focus position** to hold a rear lens at a
   chosen normalized position from 0 (far end) to 2 (near end). Moving the

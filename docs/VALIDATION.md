@@ -13,7 +13,7 @@
   (`968f885fdd01ee6661bf63f0d58d969c290cf9a09865c733f841a1101a22c4af`)
 
 The exact AArch64 pair was built in the isolated pmbootstrap buildroot. This
-build adds a labelled **Controls** button beside the shutter and camera switch;
+build adds a labelled **Controls** button in the preview overlay;
 the hamburger menu remains a fallback entry point. It was installed on the
 connected OnePlus 6T without reboot. The installed resource bundle hash is
 `bdbccd41403c2ccbdd867b1f4658f157fc65d62a97a26e548435b95314028e11`.

@@ -64,17 +64,5 @@
         </child>
       </object>
     </child>
-    <child>
-      <object class="GtkButton" id="image_controls_button">
-        <property name="label" translatable="yes">Controls</property>
-        <property name="action-name">win.image-controls</property>
-        <property name="focus-on-click">False</property>
-        <property name="tooltip-text" translatable="yes">Open Image Controls</property>
-        <style>
-          <class name="camerabutton" />
-          <class name="pill" />
-        </style>
-      </object>
-    </child>
   </template>
 </interface>
