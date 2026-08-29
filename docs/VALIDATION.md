@@ -1,19 +1,22 @@
 # Validation record
 
-## 0.1.0-r16 OnePlus 6T manual-focus checkpoint
+## 0.1.0-r16 OnePlus 6T manual-focus and visible-controls checkpoint
 
 - Date: 2026-08-29
-- Source commit: `51139b2df475fa34a7e798452fcda0fac184b3a1`
+- Source commit: `2d9639bcb58d3b5b0689928e03946242def036cd`
 - Target: postmarketOS edge, AArch64, musl
 - Lower stack: kernel r10, libcamera/IPA r28 and PipeWire libcamera SPA r7
-- Main APK: `advanced-snapshot-0.1.0_p20260829215222-r16.apk`
-  (`46cc19ac583d3ba84fcd400b3e1be4506f583eee404cce11dc8312acea85408d`)
+- Main APK: `advanced-snapshot-0.1.0_p20260829225220-r16.apk`
+  (`677c09016eb673ee1f6bc033435073871da551aaadfe7291f09ea7b81c57d10e`)
 - Language APK:
-  `advanced-snapshot-lang-0.1.0_p20260829215222-r16.apk`
-  (`3da06127a14216a2463b4454ade32c5d239f03c53cd4d501ac0713e3a1084f9e`)
+  `advanced-snapshot-lang-0.1.0_p20260829225220-r16.apk`
+  (`968f885fdd01ee6661bf63f0d58d969c290cf9a09865c733f841a1101a22c4af`)
 
-The exact AArch64 pair was built in the isolated pmbootstrap buildroot and
-installed on the reference phone without reboot. `cargo fmt --all -- --check`,
+The exact AArch64 pair was built in the isolated pmbootstrap buildroot. This
+build adds a labelled **Controls** button beside the shutter and camera switch;
+the hamburger menu remains a fallback entry point. Phone installation is
+pending recovery of its SSH service and will be recorded here separately.
+`cargo fmt --all -- --check`,
 the C helper syntax check, shell syntax checks and the package build passed.
 
 The native all-sensor regression returned:

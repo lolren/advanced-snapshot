@@ -17,6 +17,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Feature | What it brings | Status |
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
+| Always-visible image-controls entry | Puts a labelled **Controls** button beside the shutter, camera switch and gallery controls so the adjustment sheet is discoverable without opening the hamburger menu | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
 | Capture failure handling | Rejects missing, empty, directory and non-local still outputs before gallery insertion | Implemented |
 | Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented in source; phone acceptance pending |
@@ -47,7 +48,9 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Tap a subject in the rear-camera preview to request focus there. The square
   is amber while the request is pending, green only after focus metadata says
   `Focused`, and red after an optical or transport failure.
-- Open **Image Controls → Manual focus position** to hold a rear lens at a
+- Press the labelled **Controls** button in the camera control bar (the
+  hamburger menu keeps **Image Controls** as a fallback), then use **Manual
+  focus position** to hold a rear lens at a
   chosen normalized position from 0 (far end) to 2 (near end). Moving the
   slider cancels continuous autofocus and applies the real actuator position;
   tap the preview to replace it with one-shot autofocus, or press **Reset** to
@@ -160,12 +163,10 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`51139b2df475fa34a7e798452fcda0fac184b3a1` and installed on the connected
-OnePlus 6T without reboot. The main APK is
-`advanced-snapshot-0.1.0_p20260829215222-r16.apk` with SHA-256
-`46cc19ac583d3ba84fcd400b3e1be4506f583eee404cce11dc8312acea85408d`; the
-language package SHA-256 is
-`3da06127a14216a2463b4454ade32c5d239f03c53cd4d501ac0713e3a1084f9e`.
+`2d9639bcb58d3b5b0689928e03946242def036cd`. It adds a labelled **Controls**
+button to the camera bar while retaining the hamburger-menu action. The exact
+package pair is recorded in `docs/VALIDATION.md`; phone installation is
+performed only after the SSH session is reachable again.
 
 With libcamera/IPA r28 and PipeWire SPA r7, both rear modules pass the native
 focus helper regression and the all-camera Waydroid probe. Manual rear focus
@@ -235,12 +236,11 @@ open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
 The current r16 source is commit
-`51139b2df475fa34a7e798452fcda0fac184b3a1` and includes the same lifecycle
+`2d9639bcb58d3b5b0689928e03946242def036cd` and includes the same lifecycle
 guard plus the camerabin NULL barrier, GStreamer state-tuple compatibility fix,
-rear manual-focus slider and explicit return to continuous autofocus.
-Its postmarketOS AArch64 pair was built from the pinned source and installed on
-the connected OnePlus 6T without reboot. The native focus path and lower-layer
-manual range are live-tested; visual preview, saved still, video and physical
+rear manual-focus slider, explicit return to continuous autofocus and the
+always-visible Controls entry. The native focus path and lower-layer manual
+range are live-tested; visual preview, saved still, video and physical
 touchscreen acceptance remain separate device gates.
 
 No photograph, raw frame, device identifier, account credential, proprietary
