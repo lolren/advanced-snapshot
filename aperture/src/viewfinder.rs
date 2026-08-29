@@ -20,6 +20,7 @@ use crate::code_detector::QrCodeDetector;
 /// quality and file size. Candidate for a preference.
 const DEFAULT_BITRATE: u32 = 2048;
 const PROVIDER_TIMEOUT: u64 = 2;
+const CAMERA_STATE_TIMEOUT: u64 = 10;
 const FOCUS_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FOCUS_HELPER") {
     Some(path) => path,
     None => "advanced-snapshot-focus-control",
@@ -101,6 +102,8 @@ mod imp {
         // into PLAYING after a newer stop or camera reconfiguration.
         pub stream_generation: Cell<u64>,
         pub stream_wanted: Cell<bool>,
+        pub stream_stop_pending: Cell<bool>,
+        pub camera_reconfigure_generation: Cell<u64>,
 
         pub timeout_handler: RefCell<Option<glib::SourceId>>,
         pub focus_indicator_handler: RefCell<Option<glib::SourceId>>,
@@ -135,14 +138,26 @@ mod imp {
             Some(generation)
         }
 
-        pub(super) fn request_stream_stop(&self) {
+        pub(super) fn request_stream_stop(&self) -> u64 {
             self.stream_wanted.set(false);
+            self.stream_stop_pending.set(true);
             self.stream_generation
                 .set(self.stream_generation.get().wrapping_add(1));
+            self.stream_generation.get()
         }
 
         pub(super) fn stream_request_is_current(&self, generation: u64) -> bool {
             self.stream_wanted.get() && self.stream_generation.get() == generation
+        }
+
+        pub(super) fn next_camera_reconfigure_generation(&self) -> u64 {
+            let generation = self.camera_reconfigure_generation.get().wrapping_add(1);
+            self.camera_reconfigure_generation.set(generation);
+            generation
+        }
+
+        pub(super) fn camera_reconfigure_is_current(&self, generation: u64) -> bool {
+            self.camera_reconfigure_generation.get() == generation
         }
 
         pub(crate) fn set_state(&self, state: ViewfinderState) {
@@ -238,6 +253,8 @@ mod imp {
             if camera == self.camera.replace(camera.clone()) {
                 return;
             }
+            let reconfigure_generation = self.next_camera_reconfigure_generation();
+            let desired_camera = camera.clone();
             self.clear_focus_state();
             self.clear_image_adjustment_state();
             self.clear_exposure_state();
@@ -257,25 +274,29 @@ mod imp {
                 }
             }
 
-            // The current state is PAUSED if there was an error on the previous camera.
-            if obj.is_realized()
+            // Camera source changes must happen only after camerabin has fully
+            // reached NULL. GStreamer state changes are asynchronous, and
+            // changing the wrapper source while the old source is still
+            // stopping leaves Android/libcamera with a half-drained stream.
+            let stream_active = obj.is_realized()
                 && matches!(
                     self.camerabin().current_state(),
                     gst::State::Playing | gst::State::Paused
-                )
-            {
+                );
+            if stream_active || self.stream_stop_pending.get() {
                 obj.stop_stream();
-            }
+                obj.reconfigure_camera_after_stop(desired_camera, reconfigure_generation);
+            } else {
+                if let Some(camera) = desired_camera
+                    && let Err(err) = obj.setup_camera_element(&camera)
+                {
+                    log::error!("Could not reconfigure camera element: {err}");
+                    self.set_state(ViewfinderState::Error);
+                }
 
-            if let Some(camera) = camera
-                && let Err(err) = obj.setup_camera_element(&camera)
-            {
-                log::error!("Could not reconfigure camera element: {err}");
-                self.set_state(ViewfinderState::Error);
-            }
-
-            if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
-                obj.start_stream();
+                if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
+                    obj.start_stream();
+                }
             }
 
             obj.notify_camera();
@@ -1287,16 +1308,106 @@ impl Viewfinder {
 
     /// Starts the viewfinder.
     pub fn start_stream(&self) {
-        let Some(generation) = self.imp().request_stream_start() else {
+        let imp = self.imp();
+        let Some(generation) = imp.request_stream_start() else {
             return;
         };
 
+        if imp.stream_stop_pending.get() {
+            glib::spawn_future_local(glib::clone!(
+                #[weak(rename_to = obj)]
+                self,
+                async move {
+                    if !obj.wait_for_camerabin_state(gst::State::Null).await {
+                        let imp = obj.imp();
+                        if imp.stream_generation.get() == generation {
+                            imp.stream_stop_pending.set(false);
+                            imp.set_state(ViewfinderState::Error);
+                        }
+                        log::error!("Camerabin did not reach NULL before restart");
+                        return;
+                    }
+
+                    let imp = obj.imp();
+                    if !imp.stream_request_is_current(generation) {
+                        return;
+                    }
+                    imp.stream_stop_pending.set(false);
+                    obj.start_stream_now(generation);
+                }
+            ));
+            return;
+        }
+
+        self.start_stream_now(generation);
+    }
+
+    fn start_stream_now(&self, generation: u64) {
         glib::spawn_future_local(glib::clone!(
             #[weak(rename_to = obj)]
             self,
             async move {
                 obj.change_state_inner(gst::State::Playing, generation)
                     .await;
+            }
+        ));
+    }
+
+    async fn wait_for_camerabin_state(&self, expected: gst::State) -> bool {
+        let (sender, receiver) = futures_channel::oneshot::channel();
+
+        let camerabin = self.imp().camerabin();
+        std::thread::spawn(glib::clone!(
+            #[weak]
+            camerabin,
+            move || {
+                let timeout = gst::format::ClockTime::from_seconds(CAMERA_STATE_TIMEOUT);
+                let state = camerabin
+                    .state(Some(timeout))
+                    .ok()
+                    .map(|(change_done, current_state, _pending_state)| {
+                        change_done != gst::StateChangeSuccess::Async && current_state == expected
+                    })
+                    .unwrap_or(false);
+                let _ = sender.send(state);
+            }
+        ));
+
+        receiver.await.unwrap_or(false)
+    }
+
+    fn reconfigure_camera_after_stop(&self, camera: Option<crate::Camera>, generation: u64) {
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            async move {
+                if !obj.wait_for_camerabin_state(gst::State::Null).await {
+                    let imp = obj.imp();
+                    if imp.camera_reconfigure_is_current(generation) {
+                        imp.stream_stop_pending.set(false);
+                        imp.set_state(ViewfinderState::Error);
+                    }
+                    log::error!("Camerabin did not reach NULL before camera switch");
+                    return;
+                }
+
+                let imp = obj.imp();
+                if !imp.camera_reconfigure_is_current(generation) {
+                    return;
+                }
+                imp.stream_stop_pending.set(false);
+
+                if let Some(camera) = camera
+                    && let Err(err) = obj.setup_camera_element(&camera)
+                {
+                    log::error!("Could not reconfigure camera element: {err}");
+                    imp.set_state(ViewfinderState::Error);
+                    return;
+                }
+
+                if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
+                    obj.start_stream();
+                }
             }
         ));
     }
@@ -1377,7 +1488,7 @@ impl Viewfinder {
         // Invalidate any in-flight asynchronous PLAYING request before
         // changing the GStreamer state.  This ordering is the important part:
         // the pending future may finish at any time after this call returns.
-        imp.request_stream_stop();
+        let generation = imp.request_stream_stop();
         imp.clear_image_adjustment_state();
         imp.clear_exposure_state();
         if let Err(err) = imp.camerabin().set_state(gst::State::Null) {
@@ -1385,6 +1496,27 @@ impl Viewfinder {
             imp.set_state(ViewfinderState::Error);
         } else {
             log::debug!("Camerabin state successfully set to NULL");
+
+            glib::spawn_future_local(glib::clone!(
+                #[weak(rename_to = obj)]
+                self,
+                async move {
+                    if !obj.wait_for_camerabin_state(gst::State::Null).await {
+                        let imp = obj.imp();
+                        if imp.stream_generation.get() == generation {
+                            imp.stream_stop_pending.set(false);
+                            imp.set_state(ViewfinderState::Error);
+                        }
+                        log::error!("Camerabin did not reach NULL while stopping");
+                        return;
+                    }
+
+                    let imp = obj.imp();
+                    if imp.stream_generation.get() == generation {
+                        imp.stream_stop_pending.set(false);
+                    }
+                }
+            ));
         }
     }
 
@@ -1478,11 +1610,8 @@ impl Viewfinder {
         // An error can arrive while a state transition is still pending.  A
         // clean NULL transition releases libcamera/PipeWire resources and the
         // generation bump prevents the older transition from reviving them.
-        imp.request_stream_stop();
         self.cancel_current_operation();
-        if let Err(stop_err) = imp.camerabin().set_state(gst::State::Null) {
-            log::debug!("Could not clean up camerabin after an error: {stop_err}");
-        }
+        self.stop_stream();
         imp.set_state(ViewfinderState::Error);
     }
 
@@ -1862,13 +1991,39 @@ impl Viewfinder {
     }
 
     fn reset_pipeline(&self) {
+        let imp = self.imp();
         if matches!(
-            self.imp().camerabin().current_state(),
+            imp.camerabin().current_state(),
             gst::State::Playing | gst::State::Paused
-        ) {
+        ) || imp.stream_stop_pending.get()
+        {
             self.stop_stream();
-            self.setup_recording();
-            self.start_stream();
+            let generation = imp.stream_generation.get();
+            glib::spawn_future_local(glib::clone!(
+                #[weak(rename_to = obj)]
+                self,
+                async move {
+                    if !obj.wait_for_camerabin_state(gst::State::Null).await {
+                        let imp = obj.imp();
+                        if imp.stream_generation.get() == generation {
+                            imp.stream_stop_pending.set(false);
+                            imp.set_state(ViewfinderState::Error);
+                        }
+                        log::error!("Camerabin did not reach NULL before pipeline reset");
+                        return;
+                    }
+
+                    let imp = obj.imp();
+                    if imp.stream_generation.get() != generation {
+                        return;
+                    }
+                    imp.stream_stop_pending.set(false);
+                    obj.setup_recording();
+                    if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
+                        obj.start_stream();
+                    }
+                }
+            ));
         } else {
             self.setup_recording();
         }
