@@ -33,6 +33,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
+| Capture-after-focus barrier | Waits for a rear continuous-AF scan to reach a terminal state before a still or HDR sequence starts, preventing blurred in-between lens positions | Implemented; best-effort fallback keeps fixed-focus and older stacks usable |
 | Calibrated colour | Vendor CCM, lens shading and proprietary ISP tuning | Not implemented and never shown as available |
 
 “Android-class” is a feature-by-feature target, not a marketing claim. A
@@ -45,6 +46,9 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 - Tap a subject in the rear-camera preview to request focus there. The square
   is amber while the request is pending, green only after focus metadata says
   `Focused`, and red after an optical or transport failure.
+- Still capture waits for the active rear autofocus scan to settle before
+  exposing the sensor. A failed or unavailable focus result is logged and the
+  capture continues with the last stable lens position.
 - Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
   value chip and the **Main Menu → Image Controls → Zoom** slider stay in sync.
   Tap the value chip to return directly to 1x.

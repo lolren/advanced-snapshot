@@ -33,6 +33,12 @@ pmos-camera-flash --status
 The status command is read-only. A report with no writable `*:flash` channels
 keeps the switch disabled; it does not modify LED state.
 
+On a rear autofocus camera, the still-capture path waits for the published
+libcamera autofocus state before starting the still request. This avoids
+saving a frame while the lens is between scan positions. The wait is bounded
+and best-effort, so fixed-focus cameras and older PipeWire stacks retain the
+normal capture path.
+
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes

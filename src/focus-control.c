@@ -28,6 +28,7 @@
 
 enum operation {
 	OPERATION_FOCUS,
+	OPERATION_WAIT_FOCUS,
 	OPERATION_RESET,
 	OPERATION_ADJUST,
 	OPERATION_MANUAL_EXPOSURE,
@@ -155,6 +156,26 @@ static void evaluate_autofocus_result(struct app *app)
 		puts(app->autofocus_state == AUTOFOCUS_STATE_FOCUSED
 			     ? "focused"
 			     : "failed");
+		fflush(stdout);
+		finish(app, 0, NULL);
+	}
+}
+
+static void evaluate_wait_result(struct app *app)
+{
+	if (app->operation != OPERATION_WAIT_FOCUS || app->finished)
+		return;
+
+	/* A continuously focusing rear camera is safe to capture once the
+	 * libcamera algorithm has published a terminal state. A failed scan is
+	 * still a useful terminal result: the lens is no longer moving, and the
+	 * caller can make the normal capture rather than hanging indefinitely. */
+	if (app->autofocus_state == AUTOFOCUS_STATE_FOCUSED) {
+		puts("focused");
+		fflush(stdout);
+		finish(app, 0, NULL);
+	} else if (app->autofocus_state == AUTOFOCUS_STATE_FAILED) {
+		puts("failed");
 		fflush(stdout);
 		finish(app, 0, NULL);
 	}
@@ -394,6 +415,11 @@ static void request_controls(struct app *app)
 {
 	if (app->controls_requested || !app->node)
 		return;
+	if (app->operation == OPERATION_WAIT_FOCUS) {
+		app->stage = STAGE_WAIT_AUTOFOCUS;
+		evaluate_wait_result(app);
+		return;
+	}
 	if (app->operation == OPERATION_FOCUS && !app->crop_available)
 		return;
 
@@ -452,9 +478,17 @@ static void node_info(void *data, const struct pw_node_info *info)
 			}
 		}
 	}
+	if (app->operation == OPERATION_WAIT_FOCUS &&
+	    !app->af_state_available) {
+		finish(app, 3, "camera stack does not expose autofocus state");
+		return;
+	}
 
 	request_controls(app);
-	evaluate_autofocus_result(app);
+	if (app->operation == OPERATION_WAIT_FOCUS)
+		evaluate_wait_result(app);
+	else
+		evaluate_autofocus_result(app);
 }
 
 static const struct pw_node_events node_events = {
@@ -559,6 +593,11 @@ static void core_done(void *data, uint32_t id, int seq)
 		return;
 	}
 
+	if (app->stage == STAGE_WAIT_AUTOFOCUS) {
+		evaluate_wait_result(app);
+		return;
+	}
+
 	finish(app, 0, NULL);
 }
 
@@ -590,6 +629,11 @@ static void timeout(void *data, uint64_t expirations)
 			       : "timed out waiting for autofocus result");
 		return;
 	}
+	if (app->operation == OPERATION_WAIT_FOCUS &&
+	    app->stage == STAGE_WAIT_AUTOFOCUS) {
+		finish(app, 4, "timed out waiting for autofocus to settle");
+		return;
+	}
 	finish(app, 4, "timed out waiting for PipeWire");
 }
 
@@ -597,11 +641,12 @@ static void usage(const char *program)
 {
 	fprintf(stderr,
 		"usage: %s focus SERIAL X Y SIZE\n"
+		"       %s wait SERIAL\n"
 		"       %s reset SERIAL\n"
 		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n"
 		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
 		"       %s auto SERIAL\n",
-		program, program, program, program, program);
+		program, program, program, program, program, program);
 }
 
 int main(int argc, char **argv)
@@ -623,6 +668,9 @@ int main(int argc, char **argv)
 			return 2;
 		}
 		app.operation = OPERATION_FOCUS;
+	} else if (argc == 3 && spa_streq(argv[1], "wait") &&
+		   parse_uint64(argv[2], &app.target_serial)) {
+		app.operation = OPERATION_WAIT_FOCUS;
 	} else if (argc == 3 && spa_streq(argv[1], "reset") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_RESET;
@@ -678,8 +726,14 @@ int main(int argc, char **argv)
 	app.timer = pw_loop_add_timer(pw_main_loop_get_loop(app.loop), timeout, &app);
 	if (!app.timer)
 		goto cleanup;
+	/* A cold simple-IPA autofocus scan deliberately waits for sensor
+	 * statistics to become valid before traversing the actuator.  Give both
+	 * the explicit tap operation and the still-capture settle barrier enough
+	 * time to finish that bounded scan; the registry/control operations remain
+	 * short. */
 	struct timespec timeout_value = {
-		.tv_sec = app.operation == OPERATION_FOCUS ? 12 : 3,
+		.tv_sec = (app.operation == OPERATION_FOCUS ||
+			   app.operation == OPERATION_WAIT_FOCUS) ? 15 : 3,
 	};
 	struct timespec interval = { 0 };
 	pw_loop_update_timer(pw_main_loop_get_loop(app.loop), app.timer,

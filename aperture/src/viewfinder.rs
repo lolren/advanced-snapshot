@@ -836,6 +836,63 @@ impl Viewfinder {
         ));
     }
 
+    /// Waits until a currently running continuous autofocus scan reaches a
+    /// terminal state before a still capture. The helper is deliberately
+    /// best-effort: fixed-focus cameras, older PipeWire transports and a
+    /// low-contrast failed scan still leave the normal capture path usable.
+    pub async fn wait_for_focus(&self) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(camera) = self.camera() else {
+            return;
+        };
+        if !matches!(camera.location(), crate::CameraLocation::Back) {
+            return;
+        }
+        let Some(serial) = camera.target_object() else {
+            return;
+        };
+
+        let serial_arg = serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(
+            gio::SubprocessFlags::STDOUT_PIPE | gio::SubprocessFlags::STDERR_PIPE,
+        );
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("wait"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::debug!("Could not start autofocus settle wait: {err}");
+                return;
+            }
+        };
+
+        match process.communicate_utf8_future(None).await {
+            Ok((stdout, _stderr)) if process.has_exited() && process.exit_status() == 0 => {
+                log::debug!(
+                    "Autofocus settle wait completed: {}",
+                    stdout.as_deref().unwrap_or_default().trim()
+                );
+            }
+            Ok((_, stderr)) => {
+                log::debug!(
+                    "Autofocus settle wait was unavailable (status {}): {}",
+                    if process.has_exited() {
+                        process.exit_status()
+                    } else {
+                        -1
+                    },
+                    stderr.as_deref().unwrap_or_default().trim()
+                );
+            }
+            Err(err) => log::debug!("Could not read autofocus settle wait: {err}"),
+        }
+    }
+
     fn focus_coordinates(&self, widget_x: f64, widget_y: f64) -> Option<(f64, f64)> {
         let paintable = self.imp().picture.paintable()?;
         let frame_width = paintable.intrinsic_width() as f64;

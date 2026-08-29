@@ -624,14 +624,17 @@ impl Camera {
         let imp = self.imp();
         self.flush_pending_zoom();
 
+        let window = self.root().and_downcast::<crate::Window>().unwrap();
+
+        // Do not capture an intermediate frame while the rear lens is still
+        // traversing its contrast-detect scan. The wait is bounded in the
+        // helper and is a no-op for fixed-focus or older camera stacks.
+        window.set_shutter_enabled(false);
+        imp.viewfinder.wait_for_focus().await;
+
         if imp.settings().boolean("hdr-capture") {
             return self.start_hdr_capture(format).await;
         }
-
-        let window = self.root().and_downcast::<crate::Window>().unwrap();
-
-        // We enable the shutter whenever picture-stored is emitted.
-        window.set_shutter_enabled(false);
 
         let filename = utils::picture_file_name(format);
         let path = utils::pictures_dir()?.join(filename);
