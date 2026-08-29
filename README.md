@@ -165,8 +165,12 @@ patch or activate an untested dependency update on the phone. See
 The current AArch64 package was built from commit
 `2d9639bcb58d3b5b0689928e03946242def036cd`. It adds a labelled **Controls**
 button to the camera bar while retaining the hamburger-menu action. The exact
-package pair is recorded in `docs/VALIDATION.md`; phone installation is
-performed only after the SSH session is reachable again.
+package pair is recorded in `docs/VALIDATION.md` and is installed on the
+connected OnePlus 6T without reboot. The main APK is
+`advanced-snapshot-0.1.0_p20260829225220-r16.apk` with SHA-256
+`677c09016eb673ee1f6bc033435073871da551aaadfe7291f09ea7b81c57d10e`; the
+language APK SHA-256 is
+`968f885fdd01ee6661bf63f0d58d969c290cf9a09865c733f841a1101a22c4af`.
 
 With libcamera/IPA r28 and PipeWire SPA r7, both rear modules pass the native
 focus helper regression and the all-camera Waydroid probe. Manual rear focus

@@ -14,8 +14,9 @@
 
 The exact AArch64 pair was built in the isolated pmbootstrap buildroot. This
 build adds a labelled **Controls** button beside the shutter and camera switch;
-the hamburger menu remains a fallback entry point. Phone installation is
-pending recovery of its SSH service and will be recorded here separately.
+the hamburger menu remains a fallback entry point. It was installed on the
+connected OnePlus 6T without reboot. The installed resource bundle hash is
+`bdbccd41403c2ccbdd867b1f4658f157fc65d62a97a26e548435b95314028e11`.
 `cargo fmt --all -- --check`,
 the C helper syntax check, shell syntax checks and the package build passed.
 
