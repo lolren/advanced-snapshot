@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::LazyLock;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gst::prelude::*;
 use gtk::prelude::*;
@@ -854,6 +854,23 @@ impl Viewfinder {
         let Some(serial) = camera.target_object() else {
             return;
         };
+
+        /*
+         * A tap-focus request is asynchronous.  If the shutter is pressed
+         * immediately after the tap, the PipeWire node can still advertise
+         * the previous request's "focused" state.  Waiting for the helper
+         * process to disappear prevents that stale terminal state from
+         * letting a still capture through before the new lens position has
+         * been applied.
+         */
+        let deadline = Instant::now() + Duration::from_secs(15);
+        while self.imp().focus_process.borrow().is_some() && Instant::now() < deadline {
+            glib::timeout_future(Duration::from_millis(50)).await;
+        }
+        if self.imp().focus_process.borrow().is_some() {
+            log::debug!("Timed out waiting for the in-flight tap-to-focus request");
+            return;
+        }
 
         let serial_arg = serial.to_string();
         let launcher = gio::SubprocessLauncher::new(
