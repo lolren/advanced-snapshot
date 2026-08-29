@@ -21,6 +21,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Capture failure handling | Rejects missing, empty, directory and non-local still outputs before gallery insertion | Implemented |
 | Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented in source; phone acceptance pending |
 | Latest-frame preview scheduling | Uses a one-buffer downstream-leaky queue so a slow compositor or software ISP drops old frames instead of showing a delayed viewfinder | Implemented |
+| Serialized camera lifecycle | Coalesces duplicate starts and invalidates stale asynchronous starts before stop, camera switch, teardown or recovery | Implemented; protects libcamera/PipeWire stream ownership |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
 | Truthful focus reticle | Shows amber while a request is pending, green only for metadata-confirmed focus and red for failure; stale helpers cannot update a newer tap | Implemented; requires AF-state transport |
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
@@ -180,6 +181,15 @@ camera advertises concrete modes, the live caps now contain only the selected
 prevents a software ISP from silently selecting a full-resolution preview.
 Range-only camera advertisements keep the generic fallback path. The revision
 is source-tested but is not installed on the wedged reference phone yet.
+
+The camera lifecycle guard coalesces repeated `start_stream()` calls and tags
+each asynchronous GStreamer state request with a generation. `stop_stream()`,
+camera changes, widget teardown and pipeline errors invalidate older
+generations before changing `camerabin` to NULL. This matters on libcamera
+devices because a late PLAYING transition can otherwise reconfigure a source
+after its buffers have already been released, producing intermittent
+`not-negotiated`/allocator errors during rapid open-close testing. The guard
+is generic and does not depend on OnePlus-specific node names.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
