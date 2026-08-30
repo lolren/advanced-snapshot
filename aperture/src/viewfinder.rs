@@ -23,6 +23,7 @@ const PROVIDER_TIMEOUT: u64 = 2;
 const CAMERA_STATE_TIMEOUT: u64 = 10;
 const STILL_CAPTURE_TIMEOUT: u64 = 15;
 const STILL_WARMUP: Duration = Duration::from_millis(1_000);
+const STILL_MANUAL_FOCUS_SETTLE: Duration = Duration::from_millis(600);
 const FOCUS_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FOCUS_HELPER") {
     Some(path) => path,
     None => "advanced-snapshot-focus-control",
@@ -112,10 +113,15 @@ mod imp {
         pub timeout_handler: RefCell<Option<glib::SourceId>>,
         pub focus_indicator_handler: RefCell<Option<glib::SourceId>>,
         pub focus_point: Cell<Option<(f64, f64)>>,
+        /// Retain the latest display-frame focus request so a fresh
+        /// high-resolution still stream can repeat tap-to-focus after it
+        /// replaces the preview stream.
+        pub last_focus_coordinates: Cell<Option<(f64, f64)>>,
         pub(super) focus_indicator_state: Cell<FocusIndicatorState>,
         pub focus_generation: Cell<u64>,
         pub focus_process: RefCell<Option<gio::Subprocess>>,
         pub manual_focus_active: Cell<bool>,
+        pub manual_focus_position: Cell<f64>,
         pub adjustment_generation: Cell<u64>,
         pub adjustment_process: RefCell<Option<gio::Subprocess>>,
         pub exposure_generation: Cell<u64>,
@@ -192,6 +198,7 @@ mod imp {
                 process.force_exit();
             }
             self.manual_focus_active.set(false);
+            self.last_focus_coordinates.set(None);
             self.focus_point.set(None);
             self.focus_indicator_state
                 .set(FocusIndicatorState::Scanning);
@@ -782,6 +789,7 @@ impl Viewfinder {
         let imp = self.imp();
         imp.clear_focus_state();
         imp.manual_focus_active.set(false);
+        imp.last_focus_coordinates.set(Some((focus_x, focus_y)));
         let generation = imp.focus_generation.get();
 
         let widget_width = self.width().max(1) as f64;
@@ -883,14 +891,13 @@ impl Viewfinder {
             return;
         };
 
+        let lens_position = lens_position.clamp(0.0, 2.0);
         let imp = self.imp();
         imp.clear_focus_state();
+        imp.manual_focus_position.set(lens_position);
         imp.manual_focus_active.set(true);
         let generation = imp.focus_generation.get();
-        let arguments = [
-            serial.to_string(),
-            format!("{:.4}", lens_position.clamp(0.0, 2.0)),
-        ];
+        let arguments = [serial.to_string(), format!("{lens_position:.4}")];
         let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
         let process = match launcher.spawn(&[
             OsStr::new(FOCUS_HELPER),
@@ -1601,9 +1608,114 @@ impl Viewfinder {
         Ok((pipeline, warmup_gate))
     }
 
+    async fn wait_for_still_focus_helper(process: gio::Subprocess) -> bool {
+        match process.communicate_utf8_future(None).await {
+            Ok((stdout, _stderr)) if process.has_exited() && process.exit_status() == 0 => {
+                log::debug!(
+                    "Still-stream autofocus preparation completed: {}",
+                    stdout.as_deref().unwrap_or_default().trim()
+                );
+                true
+            }
+            Ok((_, stderr)) => {
+                log::warn!(
+                    "Still-stream autofocus preparation was unavailable (status {}): {}",
+                    if process.has_exited() {
+                        process.exit_status()
+                    } else {
+                        -1
+                    },
+                    stderr.as_deref().unwrap_or_default().trim()
+                );
+                false
+            }
+            Err(err) => {
+                log::warn!("Could not read still-stream autofocus result: {err}");
+                false
+            }
+        }
+    }
+
+    async fn prepare_still_focus(
+        target_serial: Option<u64>,
+        focus_coordinates: Option<(f64, f64)>,
+        manual_focus_position: Option<f64>,
+    ) {
+        let Some(target_serial) = target_serial else {
+            return;
+        };
+
+        let serial_arg = target_serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(
+            gio::SubprocessFlags::STDOUT_PIPE | gio::SubprocessFlags::STDERR_PIPE,
+        );
+
+        if let Some((focus_x, focus_y)) = focus_coordinates {
+            let x_arg = format!("{focus_x:.8}");
+            let y_arg = format!("{focus_y:.8}");
+            let process = match launcher.spawn(&[
+                OsStr::new(FOCUS_HELPER),
+                OsStr::new("focus"),
+                OsStr::new(&serial_arg),
+                OsStr::new(&x_arg),
+                OsStr::new(&y_arg),
+                OsStr::new("0.18"),
+            ]) {
+                Ok(process) => process,
+                Err(err) => {
+                    log::warn!("Could not start still-stream tap focus: {err}");
+                    return;
+                }
+            };
+            Self::wait_for_still_focus_helper(process).await;
+            return;
+        }
+
+        if let Some(manual_focus_position) = manual_focus_position {
+            let position_arg = format!("{manual_focus_position:.4}");
+            let process = match launcher.spawn(&[
+                OsStr::new(FOCUS_HELPER),
+                OsStr::new("lens"),
+                OsStr::new(&serial_arg),
+                OsStr::new(&position_arg),
+            ]) {
+                Ok(process) => process,
+                Err(err) => {
+                    log::warn!("Could not apply manual focus to still stream: {err}");
+                    return;
+                }
+            };
+            if let Err(err) = process.wait_check_future().await {
+                log::warn!("Still-stream manual focus was not applied: {err}");
+                return;
+            }
+            // PipeWire has acknowledged the control at this point, but the
+            // actuator still needs time to settle before the first frame is
+            // released to jpegenc.
+            glib::timeout_future(STILL_MANUAL_FOCUS_SETTLE).await;
+            return;
+        }
+
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("wait"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not wait for still-stream autofocus: {err}");
+                return;
+            }
+        };
+        Self::wait_for_still_focus_helper(process).await;
+    }
+
     async fn run_standalone_still_pipeline(
         pipeline: gst::Pipeline,
         warmup_gate: gst::Element,
+        target_serial: Option<u64>,
+        focus_coordinates: Option<(f64, f64)>,
+        manual_focus_position: Option<f64>,
     ) -> Result<(), String> {
         let bus = pipeline
             .bus()
@@ -1617,6 +1729,7 @@ impl Viewfinder {
         // then let exactly one frame through; jpegenc's snapshot mode sends
         // EOS after encoding it.
         glib::timeout_future(STILL_WARMUP).await;
+        Self::prepare_still_focus(target_serial, focus_coordinates, manual_focus_position).await;
         warmup_gate.set_property("drop-probability", 0.0f32);
 
         let (sender, receiver) = futures_channel::oneshot::channel();
@@ -1703,6 +1816,23 @@ impl Viewfinder {
                     return;
                 };
 
+                let rear_camera = matches!(camera.location(), crate::CameraLocation::Back);
+                let target_serial = rear_camera.then(|| camera.target_object()).flatten();
+                let manual_focus_position = if rear_camera && imp.manual_focus_active.get() {
+                    Some(imp.manual_focus_position.get())
+                } else {
+                    None
+                };
+                let focus_coordinates = if manual_focus_position.is_none() {
+                    if rear_camera {
+                        imp.last_focus_coordinates.get()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
                 let (pipeline, warmup_gate) =
                     match obj.create_standalone_still_pipeline(&camera, &location) {
                         Ok(elements) => elements,
@@ -1718,8 +1848,14 @@ impl Viewfinder {
                     };
 
                 imp.active_still_pipeline.replace(Some(pipeline.clone()));
-                let capture_result =
-                    Self::run_standalone_still_pipeline(pipeline, warmup_gate).await;
+                let capture_result = Self::run_standalone_still_pipeline(
+                    pipeline,
+                    warmup_gate,
+                    target_serial,
+                    focus_coordinates,
+                    manual_focus_position,
+                )
+                .await;
                 imp.active_still_pipeline.take();
 
                 if !imp.picture_capture_is_current(generation) {
