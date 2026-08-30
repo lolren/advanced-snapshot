@@ -98,7 +98,51 @@
                 <property name="content">
                   <object class="GtkWindowHandle">
                     <child>
-                      <object class="GtkOverlay">
+                      <object class="GtkBox" id="camera_surface">
+                        <property name="orientation">vertical</property>
+                        <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkBox" id="image_controls_toolbar">
+                            <property name="orientation">horizontal</property>
+                            <property name="hexpand">True</property>
+                            <property name="spacing">8</property>
+                            <property name="margin-start">12</property>
+                            <property name="margin-end">12</property>
+                            <property name="margin-top">6</property>
+                            <property name="margin-bottom">6</property>
+                            <style>
+                              <class name="image-controls-toolbar" />
+                            </style>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label" translatable="yes">Tap preview to focus</property>
+                                <property name="hexpand">True</property>
+                                <property name="halign">start</property>
+                                <property name="valign">center</property>
+                                <property name="ellipsize">end</property>
+                                <style>
+                                  <class name="image-controls-hint" />
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkButton" id="image_controls_overlay_button">
+                                <property name="label" translatable="yes">Image Controls</property>
+                                <property name="valign">center</property>
+                                <property name="focus-on-click">False</property>
+                                <property name="tooltip-text" translatable="yes">Open Image Controls</property>
+                                <property name="action-name">win.image-controls</property>
+                                <style>
+                                  <class name="image-controls-entry" />
+                                  <class name="pill" />
+                                </style>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkOverlay">
+                            <property name="vexpand">True</property>
                         <child type="overlay">
                           <object class="GtkRevealer" id="recording_revealer">
                             <property name="halign">center</property>
@@ -518,23 +562,6 @@
                             </style>
                           </object>
                         </child>
-                        <child type="overlay">
-                          <object class="GtkButton" id="image_controls_overlay_button">
-                            <property name="label" translatable="yes">Controls</property>
-                            <property name="halign">end</property>
-                            <property name="valign">start</property>
-                            <property name="margin-top">18</property>
-                            <property name="margin-end">18</property>
-                            <property name="focus-on-click">False</property>
-                            <property name="tooltip-text" translatable="yes">Open Image Controls</property>
-                            <property name="action-name">win.image-controls</property>
-                            <style>
-                              <class name="image-controls-entry" />
-                              <class name="pill" />
-                              <class name="osd" />
-                            </style>
-                          </object>
-                        </child>
                         <child>
                           <object class="FlashBin" id="flash_bin">
                             <child>
@@ -548,6 +575,8 @@
                                 </child>
                               </object>
                             </child>
+                          </object>
+                        </child>
                           </object>
                         </child>
                       </object>
@@ -571,15 +600,21 @@
                       <object class="GtkStackPage">
                         <property name="name">image-controls</property>
                         <property name="child">
-                          <object class="GtkBox">
-                            <property name="orientation">vertical</property>
-                            <property name="spacing">12</property>
-                            <property name="margin-start">12</property>
-                            <property name="margin-end">12</property>
-                            <property name="margin-top">24</property>
-                            <property name="margin-bottom">24</property>
+                          <object class="GtkScrolledWindow" id="image_controls_scroll">
+                            <property name="hscrollbar-policy">never</property>
+                            <property name="vscrollbar-policy">automatic</property>
+                            <property name="propagate-natural-height">False</property>
+                            <property name="vexpand">True</property>
                             <child>
-                              <object class="AdwPreferencesGroup">
+                              <object class="GtkBox">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">12</property>
+                                <property name="margin-start">12</property>
+                                <property name="margin-end">12</property>
+                                <property name="margin-top">24</property>
+                                <property name="margin-bottom">24</property>
+                                <child>
+                                  <object class="AdwPreferencesGroup">
                                 <property name="title" translatable="yes">Image Controls</property>
                                 <property name="description" translatable="yes">Adjust the live preview and saved photo</property>
                                 <child>
@@ -804,26 +839,28 @@
                                     </child>
                                   </object>
                                 </child>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="reset_image_controls">
-                                <property name="label" translatable="yes">Reset</property>
-                                <property name="halign">center</property>
-                                <style>
-                                  <class name="pill"/>
-                                </style>
-                              </object>
-                            </child>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="label" translatable="yes">Software HDR uses three rapid exposures. Moving subjects may show ghosting; hardware flash and manual exposure are disabled during the sequence.</property>
-                                <property name="wrap">True</property>
-                                <property name="justify">center</property>
-                                <style>
-                                  <class name="dim-label"/>
-                                  <class name="caption"/>
-                                </style>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="reset_image_controls">
+                                    <property name="label" translatable="yes">Reset</property>
+                                    <property name="halign">center</property>
+                                    <style>
+                                      <class name="pill"/>
+                                    </style>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="label" translatable="yes">Software HDR uses three rapid exposures. Moving subjects may show ghosting; hardware flash and manual exposure are disabled during the sequence.</property>
+                                    <property name="wrap">True</property>
+                                    <property name="justify">center</property>
+                                    <style>
+                                      <class name="dim-label"/>
+                                      <class name="caption"/>
+                                    </style>
+                                  </object>
+                                </child>
                               </object>
                             </child>
                           </object>

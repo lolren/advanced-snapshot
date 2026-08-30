@@ -108,6 +108,14 @@ if grep -Ev '^/io/github/lolren/AdvancedSnapshot/' "$work_dir/resources.actual";
 	exit 1
 fi
 
+camera_ui=$work_dir/camera.ui
+gresource extract "$root_dir/usr/share/advanced-snapshot/resources.gresource" \
+	/io/github/lolren/AdvancedSnapshot/ui/camera.ui > "$camera_ui"
+grep -Fq 'id="image_controls_toolbar"' "$camera_ui"
+grep -Fq 'id="image_controls_overlay_button"' "$camera_ui"
+grep -Fq 'win.image-controls' "$camera_ui"
+grep -Fq 'Tap preview to focus' "$camera_ui"
+
 desktop_file=$root_dir/usr/share/applications/io.github.lolren.AdvancedSnapshot.desktop
 service_file=$root_dir/usr/share/dbus-1/services/io.github.lolren.AdvancedSnapshot.service
 metainfo_file=$root_dir/usr/share/metainfo/io.github.lolren.AdvancedSnapshot.metainfo.xml

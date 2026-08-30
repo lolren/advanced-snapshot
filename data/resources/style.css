@@ -95,9 +95,20 @@ camera .zoom-indicator {
   padding: 3px 12px;
 }
 
-/* Keep the image-controls entry discoverable on narrow mobile layouts. It is
- * an overlay rather than a member of the adaptive shutter rail, because the
- * rail can be clipped when the compositor changes orientation or breakpoint. */
+/* Keep the image-controls entry discoverable on narrow mobile layouts. This
+ * is a direct child above the preview rather than a member of the adaptive
+ * shutter rail, because that rail can be clipped when the compositor changes
+ * orientation or breakpoint. */
+camera .image-controls-toolbar {
+  background: rgba(0, 0, 0, 0.55);
+  min-height: 56px;
+}
+
+camera .image-controls-hint {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.9em;
+}
+
 camera .image-controls-entry {
   color: white;
   background: rgba(0, 0, 0, 0.55);
