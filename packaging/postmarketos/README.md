@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`aa9fea6464c580c308cefecc6383f57c58910102`, and Cargo dependencies are
+`c17723cd27dbe3e543bc6e77220e85118fc7b289`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -24,12 +24,12 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r32.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r33.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r32.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r33.apk
 ```
 
-Package revision r32 contains the manual shutter/analogue-gain UI, bounded
+Package revision r33 contains the manual shutter/analogue-gain UI, bounded
 rear-flash work and opt-in Software HDR on top of the serialized image-
 adjustment transport. HDR captures three exposure-bracketed JPEGs and merges
 them with the installed `advanced-snapshot-hdr` helper. The helper aligns a
@@ -40,11 +40,14 @@ standard libcamera controls in microseconds and linear gain units. These are
 userspace features and require the matching libcamera r30 and PipeWire SPA r8
 camera stack. The helper
 is included in the main package and is covered by the staged install check.
-The r32 UI also keeps the labelled Image
-Controls entry in a direct toolbar above the preview and renders the control
-panel in a bounded, scrollable in-layout revealer, so the controls are
-visible on the OnePlus 6T's small display without depending on bottom-sheet
-natural-size negotiation. Rear sensors are returned to continuous autofocus
+The r33 UI keeps the labelled Image Controls entry in a direct toolbar above
+the preview and opens the controls as a bounded, scrollable camera-page
+overlay drawer. The upper preview remains visible while values change, so
+camera tuning is not buried in Preferences or dependent on bottom-sheet
+natural-size negotiation. The drawer provides Sensor default, Neutral,
+Natural, Vivid and Custom colour-processing presets; presets change only the
+live tone controls and preserve exposure, white balance, focus and matrix
+settings. Rear sensors are returned to continuous autofocus
 after the preview starts; the panel also exposes an explicit Auto button.
 Tapping the preview requests one-shot autofocus at that location, while the
 manual-focus slider remains an intentional lock. The fixed-focus front sensor
@@ -58,9 +61,9 @@ store a bounded 3×3 colour matrix when the lower stack advertises that standard
 control. The zoom-value chip lives in the toolbar instead of over the capture-
 mode selector, and the calibration dialog presents one matrix coefficient per
 row so it fits a 360-logical-pixel phone. These changes are included in source
-commit `aa9fea6464c580c308cefecc6383f57c58910102`.
+commit `c17723cd27dbe3e543bc6e77220e85118fc7b289`.
 
-For phone cameras with a concrete raw still mode, r32 also bypasses the legacy
+For phone cameras with a concrete raw still mode, r33 also bypasses the legacy
 Camerabin source-retarget operation that produced `not-negotiated` failures on
 the OnePlus 6T. It stops preview, runs one bounded full-resolution JPEG stream
 and restores preview. Generic cameras without such a mode retain the inherited
