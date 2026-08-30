@@ -17,7 +17,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Feature | What it brings | Status |
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
-| Always-visible image-controls entry | Puts a labelled **Image Controls** button in a direct toolbar above the preview so the adjustment sheet stays discoverable on every phone orientation and breakpoint without opening the hamburger menu | Implemented |
+| Always-visible image-controls entry | Puts a labelled **Image Controls** button in a direct toolbar above the preview; it opens a bounded camera-page drawer over the lower preview so changes remain visible without opening Preferences or the hamburger menu | Implemented |
 | Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented and accepted on all three OnePlus 6T sensors |
 | Reliable repeated phone stills | Releases the low-power preview, opens one fixed full-resolution raw stream for the JPEG, then restores preview instead of asking legacy Camerabin to retarget one PipeWire source between incompatible modes | Implemented; six-shot IMX371 stress plus IMX519/IMX376 captures passed without negotiation or recovery errors |
 | Capture failure handling | Rejects missing, empty, directory and non-local still outputs before gallery insertion | Implemented |
@@ -30,6 +30,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source and lower-layer package; sensor-scene acceptance remains separate |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
+| Colour-processing presets | Offers Sensor default, Neutral, Natural and Vivid starting points without changing exposure, white balance, focus or a measured matrix; manual edits are labelled Custom | Implemented |
 | Gamma tone control | Exposes the standard libcamera `Gamma` control for mid-tone tuning and selects the OnePlus sensor's conservative 2.0/2.1/2.2 startup default from the stable node model | Implemented on nodes advertising `Gamma`; calibration remains scene-dependent |
 | Automatic/manual white balance | Keeps statistics-driven AWB enabled by default or submits standard red/blue `ColourGains` to the software ISP while green remains 1.0 | Implemented and live-validated on IMX371, IMX376 and IMX519 |
 | Writable colour correction | Sends a bounded 3×3 `ColourCorrectionMatrix` together with manual white balance so chart-derived camera RGB corrections affect preview and capture in the software ISP | Implemented when the lower stack advertises the standard control; identity and a neutral-preserving colour-boost matrix are starting points, not factory calibration |
@@ -71,7 +72,10 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   unobstructed.
 - Open **Image Controls** for exposure compensation, manual focus, automatic
   white balance, red/blue gains, colour saturation, contrast, detail and
-  Gamma. White-balance gains affect both preview and capture in the software
+  Gamma. **Colour profile** provides Sensor default, Neutral, Natural and Vivid
+  starting points; it changes only software-ISP tone/detail values, while
+  exposure, white balance, focus and a measured matrix remain untouched. Any
+  later tone edit is shown as **Custom**. White-balance gains affect both preview and capture in the software
   ISP; they are not a display tint. **Reset** restores automatic white balance,
   the sensor-aware tone defaults, continuous autofocus and 1x zoom.
 - Select **Camera calibration** from **Image Controls** after placing a grey

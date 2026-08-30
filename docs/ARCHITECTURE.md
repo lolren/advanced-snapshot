@@ -77,6 +77,16 @@ metadata/EXIF is not preserved by the GdkPixbuf JPEG re-encode. The explicit
 limits and honest UI text keep those constraints visible until richer motion
 and tone-mapping implementations are independently validated.
 
+## Live camera controls
+
+The labelled **Image Controls** button is part of the camera page's direct
+toolbar, not Preferences. On first use, the scrollable control panel is moved
+into a bounded overlay drawer at the bottom of the camera view. The upper
+viewfinder remains visible while sliders, presets and switches submit their
+standard controls, so the user can judge the live result immediately. The
+drawer is intentionally limited to 360 logical pixels and scrolls internally
+on narrow phones.
+
 ## Manual exposure
 
 The Image Controls sheet keeps automatic exposure enabled by default. When the
@@ -126,6 +136,17 @@ off sends identity once before returning to ordinary manual white balance;
 turning AWB back on lets the sensor tuning choose its temperature-dependent
 matrix again. Matrix controls and the two convenience presets are calibration
 inputs, not claims that a factory profile has been recovered.
+
+## Colour-processing presets
+
+The Image Controls panel offers four tone presets implemented entirely in the
+application: Sensor default, Neutral, Natural and Vivid. A preset writes only
+the standard `Gamma`, `Saturation`, `Contrast` and `Sharpness` values through
+the existing adjustment helper. It leaves exposure, white balance, focus,
+zoom and the optional colour matrix alone. If the user changes one of those
+four sliders afterward, the selector becomes Custom. This keeps a quick
+Android-like starting point available without pretending that a generic look
+is a measured sensor calibration.
 
 ## Sensor calibration profiles
 

@@ -77,6 +77,13 @@ the built-in defaults. This profile tool can retain repeatable white-balance
 gains and a measured CCM for a known illuminant, but it cannot create factory
 lens-shading or proprietary denoise data.
 
+For a quick starting point, **Image Controls → Colour profile** offers
+**Sensor default**, **Neutral**, **Natural** and **Vivid**. These change only
+Gamma, Colour, Contrast and Detail; they do not overwrite exposure, white
+balance, focus or a measured matrix. Editing one of those four sliders changes
+the selector to **Custom**. Save a tuned result through **Calibrate → Save
+Current Profile** when it should survive camera selection and app restarts.
+
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes

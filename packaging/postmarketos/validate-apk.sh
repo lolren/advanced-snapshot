@@ -116,6 +116,12 @@ grep -Fq 'id="image_controls_toolbar"' "$camera_ui"
 grep -Fq 'id="image_controls_overlay_button"' "$camera_ui"
 grep -Fq 'win.image-controls' "$camera_ui"
 grep -Fq 'Tap preview to focus' "$camera_ui"
+grep -Fq 'Colour profile' "$camera_ui"
+grep -Fq 'Sensor default' "$camera_ui"
+grep -Fq 'Natural' "$camera_ui"
+grep -Fq 'Vivid' "$camera_ui"
+grep -Fq 'image-controls-drawer' "$camera_ui"
+grep -Fq '<property name="height-request">360</property>' "$camera_ui"
 zoom_in_toolbar=$(
 	xmllint --xpath \
 		'count(//object[@id="image_controls_toolbar"]/child/object[@id="zoom_reset_button"])' \
@@ -126,6 +132,22 @@ zoom_button_count=$(
 )
 if [ "$zoom_in_toolbar" != 1 ] || [ "$zoom_button_count" != 1 ]; then
 	printf 'zoom reset chip is not contained in the safe toolbar area\n' >&2
+	exit 1
+fi
+colour_preset_count=$(
+	xmllint --xpath 'count(//object[@id="colour_preset_dropdown"])' "$camera_ui"
+)
+if [ "$colour_preset_count" != 1 ]; then
+	printf 'colour profile selector is missing or duplicated\n' >&2
+	exit 1
+fi
+drawer_count=$(
+	xmllint --xpath \
+		'count(//object[@class="GtkOverlay"]/child[@type="overlay"]/object[@id="image_controls_revealer"])' \
+		"$camera_ui"
+)
+if [ "$drawer_count" != 1 ]; then
+	printf 'image controls are not in the camera-page overlay drawer\n' >&2
 	exit 1
 fi
 

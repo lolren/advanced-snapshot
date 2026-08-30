@@ -115,3 +115,12 @@ camera .image-controls-entry {
   min-width: 104px;
   padding: 6px 14px;
 }
+
+/* The advanced controls are a bounded drawer on the camera page. Keep the
+ * upper viewfinder visible so adjustments can be judged against the live
+ * scene; the Preferences window is never used for camera tuning. */
+camera .image-controls-drawer {
+  background: rgba(0, 0, 0, 0.78);
+  border-radius: 18px;
+  margin-bottom: 6px;
+}

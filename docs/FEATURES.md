@@ -20,6 +20,7 @@ camera stack” must always agree.
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
+| Colour-processing presets | Sensor default, Neutral, Natural and Vivid starting points; manual tone edits become Custom | Existing `Gamma`, `Saturation`, `Contrast` and `Sharpness` controls | Preset selection changes only those four processing values and preserves exposure, white balance, focus and the saved colour matrix |
 | Gamma | Gamma UI with a 0.1–10 range and sensor-aware OnePlus startup defaults | Standard `Gamma` property when advertised by the node | The requested value is transported to preview/capture; unsupported third-party nodes leave the rest of the controls usable |
 | White balance | Automatic mode by default; disabling it enables bounded 0.1–4.0 red and blue gain controls while green remains 1.0 | Standard `AwbEnable` and two-element `ColourGains` array transport | Extreme gains visibly move the live pixels in the expected direction on all three OnePlus sensors; Auto restores statistics-driven regulation |
 | Colour correction matrix | Optional nine-value, row-major camera-RGB-to-sRGB editor applied live only while white balance is manual | Standard `ColourCorrectionMatrix`, `AwbEnable` and `ColourGains`; PipeWire must transport a nine-float array atomically | Identity leaves colours unchanged; bounded chart-derived values alter preview and capture; disabling the custom matrix restores identity/sensor processing |
@@ -64,6 +65,14 @@ a lens-shading table or vendor denoise controls. **Identity** and **Colour
 boost** are deliberately labelled starting points. Use a grey card and colour
 chart in controlled, even light, retain the reference files and do not claim
 Android-vendor colour parity without independent measurements.
+
+The four colour-processing presets are convenience starting points rather than
+camera science: **Sensor default** uses the sensor-aware OnePlus tuning,
+**Neutral** removes the extra saturation/contrast/detail boost, **Natural** is
+a restrained general-purpose look, and **Vivid** increases colour and local
+contrast. None of them changes the exposure, white-balance, focus or measured
+colour matrix. Use **Custom** plus the calibration dialog when a chart-derived
+profile is required.
 
 Four pure application tests cover gesture scaling, lower/upper clamping,
 invalid gesture values and the displayed value format; Aperture additionally

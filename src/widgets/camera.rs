@@ -35,6 +35,11 @@ const HDR_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_HDR_HELPER") {
 };
 const HDR_SETTLE_TIME: Duration = Duration::from_millis(220);
 const HDR_EXPOSURE_OFFSETS: [f64; 3] = [-1.0, 0.0, 1.0];
+const COLOUR_PRESET_SENSOR_DEFAULT: u32 = 0;
+const COLOUR_PRESET_NEUTRAL: u32 = 1;
+const COLOUR_PRESET_NATURAL: u32 = 2;
+const COLOUR_PRESET_VIVID: u32 = 3;
+const COLOUR_PRESET_CUSTOM: u32 = 4;
 
 #[derive(Debug)]
 pub(super) struct HdrCapture {
@@ -72,6 +77,7 @@ mod imp {
         pub custom_colour_matrix: Cell<bool>,
         pub colour_matrix: Cell<[f64; 9]>,
         pub colour_matrix_reset_pending: Cell<bool>,
+        pub suppress_colour_preset: Cell<bool>,
         pub manual_focus_handler: RefCell<Option<glib::source::SourceId>>,
         pub suppress_manual_focus: Cell<bool>,
         pub flash_generation: Cell<u64>,
@@ -150,6 +156,8 @@ mod imp {
         pub sharpness_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub gamma_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub colour_preset_dropdown: TemplateChild<gtk::DropDown>,
         #[template_child]
         pub zoom_scale: TemplateChild<gtk::Scale>,
         #[template_child]
@@ -367,8 +375,12 @@ mod imp {
                 }
             ));
 
+            self.exposure_scale.connect_value_changed(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.queue_image_adjustments()
+            ));
             for scale in [
-                &*self.exposure_scale,
                 &*self.saturation_scale,
                 &*self.contrast_scale,
                 &*self.sharpness_scale,
@@ -377,9 +389,27 @@ mod imp {
                 scale.connect_value_changed(glib::clone!(
                     #[weak]
                     obj,
-                    move |_| obj.queue_image_adjustments()
+                    move |_| {
+                        obj.mark_colour_preset_custom();
+                        obj.queue_image_adjustments();
+                    }
                 ));
             }
+            self.colour_preset_dropdown
+                .set_model(Some(&gtk::StringList::new(&[
+                    "Sensor default",
+                    "Neutral",
+                    "Natural",
+                    "Vivid",
+                    "Custom",
+                ])));
+            self.colour_preset_dropdown
+                .connect_selected_notify(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |dropdown| obj.apply_colour_preset(dropdown.selected())
+                ));
+            self.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
             self.auto_exposure_switch
                 .connect_active_notify(glib::clone!(
                     #[weak]
@@ -1005,12 +1035,12 @@ impl Camera {
     pub fn show_image_controls(&self) {
         let imp = self.imp();
         /*
+         * Keep the already-bound panel in the camera-page overlay drawer.
          * AdwBottomSheet measures a GtkScrolledWindow at its minimum height;
-         * on a phone that minimum is zero, so the old sheet could open as an
-         * empty strip even though all controls existed in the UI resource.
-         * Move the already-bound panel into a normal in-layout revealer on
-         * first use. The panel then has a bounded, scrollable height and does
-         * not depend on libadwaita's sheet measurement policy.
+         * on a phone that minimum is zero, so using the sheet for camera
+         * tuning can produce an empty strip. The overlay has a bounded,
+         * scrollable height and keeps the upper live preview visible while
+         * controls are changed.
          */
         if imp.image_controls_revealer.child().is_none() {
             imp.image_controls_scroll.unparent();
@@ -1306,10 +1336,12 @@ impl Camera {
         if was_custom && !profile.custom_colour_matrix {
             imp.colour_matrix_reset_pending.set(true);
         }
+        let was_suppressing = imp.suppress_colour_preset.replace(true);
         imp.saturation_scale.set_value(profile.saturation);
         imp.contrast_scale.set_value(profile.contrast);
         imp.sharpness_scale.set_value(profile.sharpness);
         imp.gamma_scale.set_value(profile.gamma);
+        imp.suppress_colour_preset.set(was_suppressing);
         let suppressed = imp.suppress_manual_focus.replace(true);
         imp.focus_scale.set_value(profile.focus);
         imp.suppress_manual_focus.set(suppressed);
@@ -1317,8 +1349,50 @@ impl Camera {
         self.update_manual_white_balance_controls();
     }
 
+    fn set_colour_preset_selection(&self, selected: u32) {
+        let imp = self.imp();
+        let was_suppressed = imp.suppress_colour_preset.replace(true);
+        imp.colour_preset_dropdown.set_selected(selected);
+        imp.suppress_colour_preset.set(was_suppressed);
+    }
+
+    fn mark_colour_preset_custom(&self) {
+        let imp = self.imp();
+        if !imp.suppress_colour_preset.get()
+            && imp.colour_preset_dropdown.selected() != COLOUR_PRESET_CUSTOM
+        {
+            self.set_colour_preset_selection(COLOUR_PRESET_CUSTOM);
+        }
+    }
+
+    fn apply_colour_preset(&self, selected: u32) {
+        let imp = self.imp();
+        if imp.suppress_colour_preset.get() || selected == COLOUR_PRESET_CUSTOM {
+            return;
+        }
+
+        let Some(camera) = imp.viewfinder.camera() else {
+            return;
+        };
+        let camera_name = camera_model_name(&camera);
+        let Some((saturation, contrast, sharpness, gamma)) =
+            colour_preset_values(&camera_name, selected)
+        else {
+            return;
+        };
+
+        let was_suppressed = imp.suppress_colour_preset.replace(true);
+        imp.saturation_scale.set_value(saturation);
+        imp.contrast_scale.set_value(contrast);
+        imp.sharpness_scale.set_value(sharpness);
+        imp.gamma_scale.set_value(gamma);
+        imp.suppress_colour_preset.set(was_suppressed);
+        self.queue_image_adjustments();
+    }
+
     fn apply_profile(&self, profile: camera_profile::CameraProfile) {
         self.set_profile_values(profile);
+        self.set_colour_preset_selection(COLOUR_PRESET_CUSTOM);
         self.queue_image_adjustments();
         self.queue_white_balance();
 
@@ -1435,6 +1509,7 @@ impl Camera {
                     Ok(()) => {
                         let profile = camera_widget.default_profile(&camera);
                         camera_widget.apply_profile(profile);
+                        camera_widget.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
                         dialog.set_colour_calibration(
                             profile.custom_colour_matrix,
                             profile.colour_matrix,
@@ -1469,6 +1544,7 @@ impl Camera {
         imp.suppress_manual_focus.set(true);
         if let Some(camera) = imp.viewfinder.camera() {
             self.apply_profile(self.default_profile(&camera));
+            self.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
             imp.suppress_manual_focus.set(false);
             return;
         }
@@ -1486,6 +1562,7 @@ impl Camera {
         imp.gamma_scale.set_value(2.2);
         imp.focus_scale.set_value(1.0);
         imp.zoom_scale.set_value(1.0);
+        self.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
         imp.suppress_manual_focus.set(false);
         self.queue_image_adjustments();
         self.queue_white_balance();
@@ -1512,7 +1589,7 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 19] = [
+        let controls: [&gtk::Widget; 20] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
@@ -1525,6 +1602,7 @@ impl Camera {
             imp.contrast_scale.upcast_ref(),
             imp.sharpness_scale.upcast_ref(),
             imp.gamma_scale.upcast_ref(),
+            imp.colour_preset_dropdown.upcast_ref(),
             imp.zoom_scale.upcast_ref(),
             imp.zoom_reset_button.upcast_ref(),
             imp.reset_image_controls.upcast_ref(),
@@ -1796,6 +1874,11 @@ impl Camera {
         let profile = saved_profile.unwrap_or_else(|| self.default_profile(camera));
 
         self.set_profile_values(profile);
+        self.set_colour_preset_selection(if saved_profile.is_some() {
+            COLOUR_PRESET_CUSTOM
+        } else {
+            COLOUR_PRESET_SENSOR_DEFAULT
+        });
         imp.focus_scale.set_sensitive(rear_camera);
         imp.auto_focus_button.set_sensitive(rear_camera);
         imp.zoom_scale.set_value(1.0);
@@ -1997,6 +2080,28 @@ fn image_gamma_default(camera_name: &str) -> f64 {
     }
 }
 
+/// Returns the safe, userspace colour-processing presets offered by the UI.
+///
+/// These values intentionally change only the software-ISP tone/detail
+/// controls. Exposure, white balance, focus and a measured colour matrix stay
+/// under the user's control, so selecting a look cannot silently discard a
+/// calibration or make a scene unexpectedly darker.
+fn colour_preset_values(camera_name: &str, preset: u32) -> Option<(f64, f64, f64, f64)> {
+    let (_, sensor_saturation) = image_control_defaults(camera_name);
+    let sensor_gamma = image_gamma_default(camera_name);
+
+    match preset {
+        COLOUR_PRESET_SENSOR_DEFAULT => {
+            let (contrast, saturation) = image_control_defaults(camera_name);
+            Some((saturation, contrast, 1.0, sensor_gamma))
+        }
+        COLOUR_PRESET_NEUTRAL => Some((1.0, 1.0, 1.0, sensor_gamma)),
+        COLOUR_PRESET_NATURAL => Some((sensor_saturation.min(1.35), 1.05, 1.05, sensor_gamma)),
+        COLOUR_PRESET_VIVID => Some((1.55, 1.15, 1.10, sensor_gamma)),
+        _ => None,
+    }
+}
+
 fn is_focus_control(widget: &gtk::Widget) -> bool {
     let mut current = Some(widget.clone());
     while let Some(widget) = current {
@@ -2004,6 +2109,7 @@ fn is_focus_control(widget: &gtk::Widget) -> bool {
             || widget.is::<gtk::MenuButton>()
             || widget.is::<gtk::Scale>()
             || widget.is::<gtk::Switch>()
+            || widget.is::<gtk::DropDown>()
             || widget.is::<gtk::ToggleButton>()
         {
             return true;
@@ -2047,8 +2153,9 @@ fn hdr_exposure_values(base: f64) -> [f64; 3] {
 #[cfg(test)]
 mod tests {
     use super::{
-        format_zoom_label, hdr_exposure_values, image_control_defaults, image_gamma_default,
-        pinch_zoom_value,
+        COLOUR_PRESET_NATURAL, COLOUR_PRESET_NEUTRAL, COLOUR_PRESET_SENSOR_DEFAULT,
+        COLOUR_PRESET_VIVID, colour_preset_values, format_zoom_label, hdr_exposure_values,
+        image_control_defaults, image_gamma_default, pinch_zoom_value,
     };
 
     #[test]
@@ -2069,6 +2176,31 @@ mod tests {
         assert_eq!(image_gamma_default("Built-in Back Camera imx376"), 2.1);
         assert_eq!(image_gamma_default("Built-in Back Camera imx519"), 2.2);
         assert_eq!(image_gamma_default("USB Webcam"), 2.2);
+    }
+
+    #[test]
+    fn colour_presets_keep_sensor_gamma_and_only_change_processing() {
+        assert_eq!(
+            colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_SENSOR_DEFAULT),
+            (1.35, 1.10, 1.0, 2.0)
+        );
+        assert_eq!(
+            colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_NEUTRAL),
+            (1.0, 1.0, 1.0, 2.0)
+        );
+        assert_eq!(
+            colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_NATURAL),
+            (1.35, 1.05, 1.05, 2.0)
+        );
+        assert_eq!(
+            colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_VIVID),
+            (1.55, 1.15, 1.10, 2.0)
+        );
+    }
+
+    #[test]
+    fn custom_colour_preset_is_not_a_preset_request() {
+        assert_eq!(colour_preset_values("Sony IMX519", 4), None);
     }
 
     #[test]
