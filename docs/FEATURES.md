@@ -22,8 +22,9 @@ camera stack” must always agree.
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
 | Gamma | Gamma UI with a 0.1–10 range and sensor-aware OnePlus startup defaults | Standard `Gamma` property when advertised by the node | The requested value is transported to preview/capture; unsupported third-party nodes leave the rest of the controls usable |
 | White balance | Automatic mode by default; disabling it enables bounded 0.1–4.0 red and blue gain controls while green remains 1.0 | Standard `AwbEnable` and two-element `ColourGains` array transport | Extreme gains visibly move the live pixels in the expected direction on all three OnePlus sensors; Auto restores statistics-driven regulation |
-| Camera calibration | Mobile dialog for grey-card/colour-chart tuning; saves, applies and clears exposure, white-balance, tone and optional focus values in a versioned profile per physical sensor | The same standard image controls plus stable node identity | A profile survives app restart and applies only to its sensor; no ephemeral PipeWire serial is persisted |
-| Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
+| Colour correction matrix | Optional nine-value, row-major camera-RGB-to-sRGB editor applied live only while white balance is manual | Standard `ColourCorrectionMatrix`, `AwbEnable` and `ColourGains`; PipeWire must transport a nine-float array atomically | Identity leaves colours unchanged; bounded chart-derived values alter preview and capture; disabling the custom matrix restores identity/sensor processing |
+| Camera calibration | Mobile dialog for grey-card/colour-chart tuning; saves, applies and clears exposure, white-balance, colour-matrix, tone and optional focus values in a versioned profile per physical sensor | The same standard image controls plus stable node identity | A version 3 profile survives app restart and applies only to its sensor; no ephemeral PipeWire serial is persisted |
+| Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip in the toolbar above the preview; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; the chip does not cover the photo/video/QR selector; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
 | HDR | Opt-in Software HDR switch; captures dark, normal and bright JPEGs and adds one merged output to the gallery | Three still requests, standard ExposureValue control, GdkPixbuf JPEG decode/encode and the bounded `advanced-snapshot-hdr` helper | Three same-sized frames are registered to the middle exposure with a confidence-gated global translation, merged in linear light, and atomically installed; clipped samples are down-weighted and temporary frames are cleaned up; local/non-rigid motion and vendor-ISP parity remain explicitly out of scope |
 | Vendor ISO calibration | No vendor-specific ISO label; manual analogue gain is exposed in linear units | Sensor gain model and a client-side ISO mapping would be required | Not implemented; the gain control remains honest and bounded |
@@ -45,7 +46,8 @@ is installed. The OnePlus 6T package uses a 2.5-second pulse at level 32; the
 helper halves the requested level for the yellow LED channel and restores both
 channels after a normal or interrupted pulse.
 
-The installed OnePlus 6T r29/r8 stack and current Advanced Snapshot source pass the
+The installed OnePlus 6T libcamera r30/PipeWire r8 stack and r32 Advanced
+Snapshot package pass the
 non-image lower-layer, package-launch, generation-correlated autofocus and live
 pinch-zoom checks. The application deliberately rejects focus-result mode on
 an older transport rather than treating an accepted request as optical
@@ -54,14 +56,14 @@ tests.
 
 The calibration dialog is a repeatable control-profile tool, not a factory ISP
 calibrator. It can tune the controls that the standard node advertises—Gamma,
-Saturation, Contrast, Sharpness, Exposure, automatic/manual white balance and,
-on rear sensors, focus—and
-stores them under a stable sensor identity in GSettings. The current OnePlus
-nodes expose standard two-channel white-balance gains but not a writable
-colour-correction matrix, lens-shading table or vendor denoise controls, so the
-dialog does not invent those values or claim Android-vendor colour parity. Use
-a grey card or colour chart in even light and compare saved reference photos
-when choosing values.
+Saturation, Contrast, Sharpness, Exposure, automatic/manual white balance, a
+writable 3×3 colour matrix and, on rear sensors, focus—and stores them under a
+stable sensor identity in GSettings. The OnePlus development stack exposes the
+standard colour-matrix control, but it does not provide factory coefficients,
+a lens-shading table or vendor denoise controls. **Identity** and **Colour
+boost** are deliberately labelled starting points. Use a grey card and colour
+chart in controlled, even light, retain the reference files and do not claim
+Android-vendor colour parity without independent measurements.
 
 Four pure application tests cover gesture scaling, lower/upper clamping,
 invalid gesture values and the displayed value format; Aperture additionally

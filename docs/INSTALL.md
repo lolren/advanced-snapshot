@@ -63,14 +63,19 @@ IMX519 sensors at the conservative 2.0, 2.1 and 2.2 values respectively. The
 Contrast, Detail, Exposure and focus against a grey card or colour chart. It
 also keeps automatic white balance on by default and exposes standard red/blue
 `ColourGains` when automatic mode is disabled. Start in automatic mode, then
-adjust the manual gains until a neutral target is neutral. Save the current
-values after capturing a reference photo; the profile is versioned
+adjust the manual gains until a neutral target is neutral. With the matching
+lower stack, **Use custom colour matrix** additionally submits the standard
+3×3 `ColourCorrectionMatrix` while white balance is manual. Tune its row-major
+coefficients only against a controlled chart; keep each row sum near 1 so grey
+stays neutral. **Identity** and **Colour boost** are starting points and are not
+factory calibration. Save the current values after capturing a reference
+photo; the profile is versioned
 and keyed by the stable libcamera node identity, not the PipeWire serial. Use
 **Apply Saved Profile** to restore it, **Restore manual focus** only when a
 fixed lens position is intentional, and **Clear Saved Profile** to return to
-the built-in defaults. This profile tool can calibrate repeatable white-balance
-gains for a known illuminant, but it cannot create a factory CCM, lens-shading
-table or proprietary denoise data.
+the built-in defaults. This profile tool can retain repeatable white-balance
+gains and a measured CCM for a known illuminant, but it cannot create factory
+lens-shading or proprietary denoise data.
 
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
@@ -97,20 +102,20 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r30 package
+## OnePlus 6T r32 package
 
 The current tested package is source commit
-`275999b20efa0de20c7f639b4341af42d0959fa2`, package revision r30. Build it
+`aa9fea6464c580c308cefecc6383f57c58910102`, package revision r32. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
 to the booted phone. The package is independent of distro Snapshot, so it can
 be upgraded or removed without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r30.apk \
-  advanced-snapshot-lang-0.1.0-r30.apk user@PHONE:/tmp/
+scp advanced-snapshot-0.1.0-r32.apk \
+  advanced-snapshot-lang-0.1.0-r32.apk user@PHONE:/tmp/
 ssh user@PHONE 'sudo apk add --allow-untrusted \
-  /tmp/advanced-snapshot-0.1.0-r30.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r30.apk'
+  /tmp/advanced-snapshot-0.1.0-r32.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r32.apk'
 ```
 
 Stop any running Advanced Snapshot window before replacing the files, then

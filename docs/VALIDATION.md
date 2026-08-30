@@ -1,5 +1,45 @@
 # Validation record
 
+## 0.1.0-r32 colour calibration and mobile layout checkpoint
+
+- Date: 2026-08-30
+- Source commit: `aa9fea6464c580c308cefecc6383f57c58910102`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r30 and PipeWire libcamera SPA r8
+- Source archive SHA-512:
+  `4d308df29085404171264470b6a29171307af9055795bd69cff7aef95d0afe394a1d7790b23ef23b7d865d2cf865704be958c1549f91f3157d0b9f19021d5ba8`
+- Main APK: `advanced-snapshot-0.1.0-r32.apk`
+  (`269f68cb9d2fc7061a7277f21f70c87641d2a20a7206a090bbbbbd279a09ce5b`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r32.apk`
+  (`8bc79a14ed890dd429188cb7b173cc9d13c61572c92faea4b4f24de66501e377`)
+
+The pinned archive completed both optimized AArch64 builds and the package
+test phase. All 12 application, 10 HDR-helper and 9 Aperture tests passed. The
+artifact validator accepted both signatures and architectures, exact file
+manifests, metadata, schema, language split and coexistence with distro
+`snapshot-50.0-r3`. It also parsed the packaged GtkBuilder XML and confirmed
+that exactly one zoom reset chip is a direct child of the safe toolbar, the
+calibration dialog is 340 logical pixels wide and all nine matrix coefficients
+use separate `AdwSpinRow` controls.
+
+An exact phone-side simulation selected only Advanced Snapshot and its language
+package for r31-to-r32 upgrades, with no removals or dependency changes. The
+same pair was installed without reboot. r32 opened the rear 1280x720/30 stream
+and remained active. A full-resolution device screenshot showed the **1.0×**
+chip between the focus hint and **Image Controls**, with the photo/video/QR
+selector unobstructed. The calibration dialog then opened on the 360-logical-
+pixel display: its title, sensor identity, wrapped instructions, current-state
+summary, matrix switch and first one-row coefficient were all within the screen
+bounds. The service journal contained no panic, critical, stream,
+`not-negotiated` or startup failure during these checks.
+
+The matching lower stack separately accepted identity and bounded manual
+`ColourCorrectionMatrix` requests on IMX371, IMX376 and IMX519, followed by a
+successful return to automatic white balance on every sensor. This checkpoint
+proves the standard matrix transport and phone-safe UI structure. It does not
+provide factory matrix coefficients, lens-shading correction, proprietary
+denoise or Android-vendor image parity.
+
 ## 0.1.0-r30 ISP white-balance calibration checkpoint
 
 - Date: 2026-08-30

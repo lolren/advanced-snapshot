@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`275999b20efa0de20c7f639b4341af42d0959fa2`, and Cargo dependencies are
+`aa9fea6464c580c308cefecc6383f57c58910102`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -24,12 +24,12 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r30.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r32.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r30.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r32.apk
 ```
 
-Package revision r30 contains the manual shutter/analogue-gain UI, bounded
+Package revision r32 contains the manual shutter/analogue-gain UI, bounded
 rear-flash work and opt-in Software HDR on top of the serialized image-
 adjustment transport. HDR captures three exposure-bracketed JPEGs and merges
 them with the installed `advanced-snapshot-hdr` helper. The helper aligns a
@@ -37,10 +37,10 @@ confidence-gated global translation against the middle exposure before fusion;
 moving subjects, rotation, parallax and vendor-ISP parity remain explicitly
 out of scope. Automatic exposure is enabled by default; disabling it submits
 standard libcamera controls in microseconds and linear gain units. These are
-userspace features and require the matching libcamera r29 and PipeWire SPA r8
+userspace features and require the matching libcamera r30 and PipeWire SPA r8
 camera stack. The helper
 is included in the main package and is covered by the staged install check.
-The r30 UI also keeps the labelled Image
+The r32 UI also keeps the labelled Image
 Controls entry in a direct toolbar above the preview and renders the control
 panel in a bounded, scrollable in-layout revealer, so the controls are
 visible on the OnePlus 6T's small display without depending on bottom-sheet
@@ -53,21 +53,24 @@ keeps those rear-only controls disabled. Gamma is exposed as the standard
 per-sensor profile in GSettings, keyed by the stable libcamera node identity;
 it can restore automatic/manual white balance, bounded red/blue ISP gains,
 image controls and optionally a deliberate manual focus
-position while keeping continuous autofocus as the default. The current
-GTK/glib compile fix and sensor-model tone-default fix are included in source
-commit `275999b20efa0de20c7f639b4341af42d0959fa2`.
+position while keeping continuous autofocus as the default. It can additionally
+store a bounded 3×3 colour matrix when the lower stack advertises that standard
+control. The zoom-value chip lives in the toolbar instead of over the capture-
+mode selector, and the calibration dialog presents one matrix coefficient per
+row so it fits a 360-logical-pixel phone. These changes are included in source
+commit `aa9fea6464c580c308cefecc6383f57c58910102`.
 
-For phone cameras with a concrete raw still mode, r30 also bypasses the legacy
+For phone cameras with a concrete raw still mode, r32 also bypasses the legacy
 Camerabin source-retarget operation that produced `not-negotiated` failures on
 the OnePlus 6T. It stops preview, runs one bounded full-resolution JPEG stream
 and restores preview. Generic cameras without such a mode retain the inherited
 path. `tests/device/probe-camerabin-capture.py` preserves the three wrapper
 strategies used to reproduce the lower-level failure.
 
-The reference r30 build produced main APK SHA-256
-`93205595cbd6c168c5179d8f57d7b2b036d8606ccca12d3101ae46ed7ccecb51` and
+The reference r32 build produced main APK SHA-256
+`269f68cb9d2fc7061a7277f21f70c87641d2a20a7206a090bbbbbd279a09ce5b` and
 language APK SHA-256
-`b98c7646f84ffc78f5b1c155f5a72cf7b7cc1ede5fb358fc74d365cb9122212e`.
+`8bc79a14ed890dd429188cb7b173cc9d13c61572c92faea4b4f24de66501e377`.
 
 `APK_KEY_DIR` and `APK_KEY_FILE` are optional and are useful for validating a
 local pmbootstrap build signed by that buildroot's development key. The key
@@ -80,7 +83,9 @@ excluded because `crossdirect` cannot resolve their target crates. The
 validator checks both package signatures, architectures, complete file
 manifests, language split, desktop entry, D-Bus service, AppStream metadata,
 GSettings schema, resource namespace, stale upstream identifiers and file
-ownership overlap. A host `apk` command can be used without setting
+ownership overlap. It also parses the packaged GtkBuilder XML to require one
+toolbar-contained zoom chip and the nine phone-width calibration rows. A host
+`apk` command can be used without setting
 `APK_VERIFY_TOOL`.
 
 ## Updating the source pin

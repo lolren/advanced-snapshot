@@ -26,7 +26,8 @@ for command_name in \
 	readelf \
 	sha256sum \
 	strings \
-	tar
+	tar \
+	xmllint
 do
 	if ! command -v "$command_name" >/dev/null 2>&1; then
 		printf 'missing validation command: %s\n' "$command_name" >&2
@@ -115,6 +116,39 @@ grep -Fq 'id="image_controls_toolbar"' "$camera_ui"
 grep -Fq 'id="image_controls_overlay_button"' "$camera_ui"
 grep -Fq 'win.image-controls' "$camera_ui"
 grep -Fq 'Tap preview to focus' "$camera_ui"
+zoom_in_toolbar=$(
+	xmllint --xpath \
+		'count(//object[@id="image_controls_toolbar"]/child/object[@id="zoom_reset_button"])' \
+		"$camera_ui"
+)
+zoom_button_count=$(
+	xmllint --xpath 'count(//object[@id="zoom_reset_button"])' "$camera_ui"
+)
+if [ "$zoom_in_toolbar" != 1 ] || [ "$zoom_button_count" != 1 ]; then
+	printf 'zoom reset chip is not contained in the safe toolbar area\n' >&2
+	exit 1
+fi
+
+calibration_ui=$work_dir/calibration.ui
+gresource extract "$root_dir/usr/share/advanced-snapshot/resources.gresource" \
+	/io/github/lolren/AdvancedSnapshot/ui/calibration.ui > "$calibration_ui"
+grep -Fq '<property name="content-width">340</property>' "$calibration_ui"
+spin_row_count=$(
+	xmllint --xpath \
+		'count(//object[@class="AdwSpinRow" and starts-with(@id, "ccm_")])' \
+		"$calibration_ui"
+)
+if [ "$spin_row_count" != 9 ]; then
+	printf 'camera calibration matrix must contain nine mobile-width spin rows\n' >&2
+	exit 1
+fi
+wide_row_count=$(
+	xmllint --xpath 'count(//object[@id="ccm_red_row"])' "$calibration_ui"
+)
+if [ "$wide_row_count" != 0 ]; then
+	printf 'wide three-column calibration matrix layout found\n' >&2
+	exit 1
+fi
 
 desktop_file=$root_dir/usr/share/applications/io.github.lolren.AdvancedSnapshot.desktop
 service_file=$root_dir/usr/share/dbus-1/services/io.github.lolren.AdvancedSnapshot.service

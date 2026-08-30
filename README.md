@@ -32,11 +32,12 @@ postmarketOS into an unmaintainable permanent fork.
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
 | Gamma tone control | Exposes the standard libcamera `Gamma` control for mid-tone tuning and selects the OnePlus sensor's conservative 2.0/2.1/2.2 startup default from the stable node model | Implemented on nodes advertising `Gamma`; calibration remains scene-dependent |
 | Automatic/manual white balance | Keeps statistics-driven AWB enabled by default or submits standard red/blue `ColourGains` to the software ISP while green remains 1.0 | Implemented and live-validated on IMX371, IMX376 and IMX519 |
-| Per-sensor calibration tool | Lets the user tune white balance, tone, exposure and focus against a grey card or colour chart, save a versioned profile, apply it later and optionally restore a deliberate manual focus position | Implemented in the Camera Calibration dialog; profiles are stored per stable sensor identity |
+| Writable colour correction | Sends a bounded 3×3 `ColourCorrectionMatrix` together with manual white balance so chart-derived camera RGB corrections affect preview and capture in the software ISP | Implemented when the lower stack advertises the standard control; identity and a neutral-preserving colour-boost matrix are starting points, not factory calibration |
+| Per-sensor calibration tool | Lets the user tune white balance, a 3×3 colour matrix, tone, exposure and focus against a grey card or colour chart, save a versioned profile, apply it later and optionally restore a deliberate manual focus position | Implemented in the Camera Calibration dialog; version 3 profiles are stored per stable sensor identity |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
 | Software HDR exposure fusion | Captures dark, normal and bright JPEGs, aligns bounded whole-frame handheld translation, rejects clipped samples, merges them in linear light and writes one atomically installed JPEG; temporary frames are removed on success or failure | Implemented in source; phone image-quality acceptance pending |
-| Synchronized digital zoom | The image-control slider, two-finger pinch gesture and on-preview value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates installed in r4 |
+| Synchronized digital zoom | The image-control slider, two-finger pinch gesture and toolbar value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates; the value was moved out of the preview so it cannot overlap the photo/video/QR selector |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
 | Capture-after-focus barrier | Waits for a rear continuous-AF scan to reach a terminal state before a still or HDR sequence starts, preventing blurred in-between lens positions | Implemented; best-effort fallback keeps fixed-focus and older stacks usable |
@@ -64,8 +65,10 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   exposing the sensor. A failed or unavailable focus result is logged and the
   capture continues with the last stable lens position.
 - Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
-  value chip and the **Main Menu → Image Controls → Zoom** slider stay in sync.
-  Tap the value chip to return directly to 1x.
+  value chip in the toolbar above the preview and the **Main Menu → Image
+  Controls → Zoom** slider stay in sync. Tap the value chip to return directly
+  to 1x. Keeping the value in that toolbar leaves the photo/video/QR selector
+  unobstructed.
 - Open **Image Controls** for exposure compensation, manual focus, automatic
   white balance, red/blue gains, colour saturation, contrast, detail and
   Gamma. White-balance gains affect both preview and capture in the software
@@ -73,10 +76,14 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   the sensor-aware tone defaults, continuous autofocus and 1x zoom.
 - Select **Camera calibration** from **Image Controls** after placing a grey
   card or colour chart in even light. Start with automatic white balance, then
-  disable it and adjust red/blue gains until a neutral target is neutral.
-  Adjust Gamma, Colour, Contrast, Detail, Exposure and focus while viewing the
-  live preview, capture a reference photo, then press **Calibrate → Save
-  Current Profile**. The profile is
+  disable it and adjust red/blue gains until a neutral target is neutral. If
+  the camera advertises `ColourCorrectionMatrix`, enable **Use custom colour
+  matrix** and tune the nine row-major camera-RGB-to-sRGB coefficients against
+  a colour chart. Keep each row sum near 1 while correcting hue; **Identity**
+  and **Colour boost** are safe starting points, not measured values. Adjust
+  Gamma, Colour, Contrast, Detail, Exposure and focus while viewing the live
+  preview, capture a reference photo, then press **Calibrate → Save Current
+  Profile**. The profile is
   keyed to the stable physical sensor, so main, secondary and front-camera
   values do not overwrite one another. Leave **Restore manual focus** off for
   normal continuous autofocus; enable it only when a saved lens position is
@@ -100,8 +107,9 @@ Zoom is a digital crop performed by Camerabin, not optical lens zoom. Software
 HDR is exposure fusion, not the OnePlus vendor HDR pipeline: alignment is
 limited to one global translation per bracket, with no local motion model,
 local tone mapping, automatic flash metering, a factory-calibrated CCM or
-lens-shading tables. Manual white-balance gains are available, but they do not
-replace a validated colour matrix. Manual analogue gain is not the same thing as a vendor ISO
+lens-shading tables. A user-supplied colour matrix can be applied, but it is
+not factory calibration unless it was measured with a controlled chart and
+illuminant. Manual analogue gain is not the same thing as a vendor ISO
 mode, and no vendor-specific ISO calibration is claimed. The hardware-flash switch is an
 explicit, bounded LED pulse and is not used during HDR capture.
 
@@ -132,9 +140,9 @@ advanced-snapshot-hdr --output merged.jpg \
   --input dark.jpg --input normal.jpg --input bright.jpg
 ```
 
-The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r29,
+The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r30,
 PipeWire libcamera SPA r8 and postmarketOS edge. The current app package is the
-source-built r30 development line. The lower layer passes all-sensor stream
+source-built r32 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
 manual lens-position sweep. The application now also passes repeated native
 still capture on IMX371 and one full-resolution capture after tap-focus on each
@@ -184,16 +192,17 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`275999b20efa0de20c7f639b4341af42d0959fa2`. It includes the labelled
+`aa9fea6464c580c308cefecc6383f57c58910102`. It includes the labelled
 **Image Controls** entry, Gamma, sensor-model tone defaults, per-sensor
-automatic/manual white balance, **Camera calibration** profiles and the
-reliable standalone full-resolution
+automatic/manual white balance, writable colour-matrix calibration, narrow-
+screen **Camera calibration** profiles, an unobstructed toolbar zoom chip and
+the reliable standalone full-resolution
 still path. The exact package pair is recorded in `docs/VALIDATION.md` and is
 installed on the connected OnePlus 6T without reboot. The main APK is
-`advanced-snapshot-0.1.0-r30.apk` with SHA-256
-`93205595cbd6c168c5179d8f57d7b2b036d8606ccca12d3101ae46ed7ccecb51`; the
-language APK is `advanced-snapshot-lang-0.1.0-r30.apk` with SHA-256
-`b98c7646f84ffc78f5b1c155f5a72cf7b7cc1ede5fb358fc74d365cb9122212e`.
+`advanced-snapshot-0.1.0-r32.apk` with SHA-256
+`269f68cb9d2fc7061a7277f21f70c87641d2a20a7206a090bbbbbd279a09ce5b`; the
+language APK is `advanced-snapshot-lang-0.1.0-r32.apk` with SHA-256
+`8bc79a14ed890dd429188cb7b173cc9d13c61572c92faea4b4f24de66501e377`.
 
 The source-equivalent r28 candidate completed six consecutive IMX371 captures
 and one capture after tap-focus on each rear sensor. Every file was a valid
@@ -211,7 +220,7 @@ gain requests changed each live stream in the expected direction, and
 restoring automatic white balance returned each stream to statistics-driven
 neutral output. All sensors were left in automatic mode after the test.
 
-With libcamera/IPA r29 and PipeWire SPA r8, both rear modules pass the native
+With libcamera/IPA r30 and PipeWire SPA r8, both rear modules pass the native
 focus helper regression and the all-camera Waydroid probe. Manual rear focus
 is a normalized 0–2 device range, not a factory-calibrated distance scale.
 Saved-photo colour/quality comparison against a controlled chart and Android
@@ -281,13 +290,15 @@ intermittent `not-negotiated`, allocator or stream-drain errors during rapid
 open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
-The current r30 source is commit
-`275999b20efa0de20c7f639b4341af42d0959fa2` and includes the same lifecycle
+The current r32 source is commit
+`aa9fea6464c580c308cefecc6383f57c58910102` and includes the same lifecycle
 guard plus the Camerabin NULL barrier, GStreamer state-tuple compatibility fix,
 rear manual-focus slider, explicit return to continuous autofocus, the
 always-visible Image Controls entry, Gamma, per-sensor calibration profiles and
-the bounded standalone full-resolution still path. Calibration profiles now
-also persist automatic/manual white-balance mode and bounded red/blue gains.
+the bounded standalone full-resolution still path. Calibration profiles persist
+automatic/manual white balance, bounded red/blue gains and an optional 3×3
+colour matrix. The 1.0× chip is contained by the toolbar instead of covering
+the capture-mode selector, and matrix coefficients use nine phone-width rows.
 Native focus, all-sensor
 preview and repeated saved stills are live-tested; calibrated colour, video and
 long-run battery acceptance remain separate device gates.

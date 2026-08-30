@@ -108,6 +108,25 @@ IDs, and the simple IPA clamps both channels to its advertised 0–4 range.
 Advanced Snapshot intentionally presents 0.1–4.0 so a saved profile cannot
 black out one colour channel.
 
+## Colour correction matrix
+
+The optional custom matrix is the standard row-major 3×3
+`ColourCorrectionMatrix` that converts white-balanced camera RGB into sRGB.
+The calibration dialog bounds every coefficient to -4…4. Aperture launches one
+generation-owned helper request containing `AwbEnable=false`, both
+`ColourGains` and all nine matrix values, so the ISP never observes an
+intermediate frame with automatic white balance and a manual matrix mixed
+together. The helper discovers every control ID from the live PipeWire node;
+unsupported cameras fail as unavailable instead of receiving a guessed numeric
+ID.
+
+Automatic white balance remains the normal default. The custom matrix is only
+submitted while AWB is manual, as required by libcamera. Turning custom colour
+off sends identity once before returning to ordinary manual white balance;
+turning AWB back on lets the sensor tuning choose its temperature-dependent
+matrix again. Matrix controls and the two convenience presets are calibration
+inputs, not claims that a factory profile has been recovered.
+
 ## Sensor calibration profiles
 
 The Camera Calibration dialog is deliberately a userspace profile layer. It
@@ -121,14 +140,16 @@ falls back to bounded defaults.
 
 Profiles contain only controls the application can submit through the standard
 interface: automatic/manual exposure, shutter time, analogue gain,
-automatic/manual white balance, red/blue gains, Gamma, Saturation, Contrast,
-Sharpness and normalized rear `LensPosition`. The
+automatic/manual white balance, red/blue gains, the optional 3×3 colour matrix,
+Gamma, Saturation, Contrast, Sharpness and normalized rear `LensPosition`. The
 optional manual-focus restore flag is off by default, so a saved profile does
 not disable continuous autofocus unexpectedly. Clearing a profile restores the
-sensor-aware built-in values. Because the current OnePlus nodes do not expose
-a writable CCM, lens-shading table or vendor denoise controls, this tool cannot
-reproduce the Android ISP's factory colour pipeline; it is a repeatable
-control calibration aid rather than a proprietary ISP replacement.
+sensor-aware built-in values. Profile format version 3 adds the matrix switch
+and nine coefficients while older profiles load with custom colour disabled
+and identity values. The matrix is writable on the matching OnePlus lower
+stack, but no factory coefficients, lens-shading table or vendor denoise data
+are supplied. The tool therefore remains a repeatable control calibration aid
+rather than a proprietary ISP replacement.
 
 ## Bounded rear flash
 
