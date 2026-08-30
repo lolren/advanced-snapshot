@@ -95,6 +95,7 @@
             <property name="child">
               <object class="AdwBottomSheet" id="bottom_sheet">
                 <property name="full-width">False</property>
+                <property name="sheet-height">620</property>
                 <property name="content">
                   <object class="GtkWindowHandle">
                     <child>
@@ -603,11 +604,7 @@
                           <object class="GtkScrolledWindow" id="image_controls_scroll">
                             <property name="hscrollbar-policy">never</property>
                             <property name="vscrollbar-policy">automatic</property>
-                            <property name="propagate-natural-height">False</property>
-                            <!-- AdwBottomSheet otherwise sees the scroller's
-                                 natural height as zero and opens an empty
-                                 shallow panel on small portrait displays. -->
-                            <property name="height-request">620</property>
+                            <property name="propagate-natural-height">True</property>
                             <property name="vexpand">True</property>
                             <child>
                               <object class="GtkBox">
