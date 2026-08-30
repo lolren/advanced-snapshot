@@ -9,6 +9,7 @@ use gtk::{gio, gio::prelude::SettingsExt, glib};
 
 const PROFILES_KEY: &str = "camera-calibration-profiles";
 const PROFILE_GROUP_PREFIX: &str = "camera-";
+pub const IDENTITY_CCM: [f64; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
 /// The values controlled by the Advanced Snapshot image-controls panel.
 ///
@@ -24,6 +25,11 @@ pub struct CameraProfile {
     /// Manual red and blue gains relative to a fixed green gain of 1.0.
     pub red_gain: f64,
     pub blue_gain: f64,
+    /// Whether `colour_matrix` should replace the sensor's ordinary CCM while
+    /// white balance is manual.
+    pub custom_colour_matrix: bool,
+    /// Row-major camera-RGB to sRGB correction matrix.
+    pub colour_matrix: [f64; 9],
     pub gamma: f64,
     pub saturation: f64,
     pub contrast: f64,
@@ -44,6 +50,8 @@ impl CameraProfile {
             auto_white_balance: self.auto_white_balance,
             red_gain: clamp_finite(self.red_gain, 1.0, 0.1, 4.0),
             blue_gain: clamp_finite(self.blue_gain, 1.0, 0.1, 4.0),
+            custom_colour_matrix: self.custom_colour_matrix,
+            colour_matrix: clamp_colour_matrix(self.colour_matrix),
             gamma: clamp_finite(self.gamma, 2.2, 0.1, 10.0),
             saturation: clamp_finite(self.saturation, 1.0, 0.0, 2.0),
             contrast: clamp_finite(self.contrast, 1.0, 0.0, 2.0),
@@ -52,6 +60,10 @@ impl CameraProfile {
             restore_manual_focus: self.restore_manual_focus,
         }
     }
+}
+
+pub fn clamp_colour_matrix(matrix: [f64; 9]) -> [f64; 9] {
+    std::array::from_fn(|index| clamp_finite(matrix[index], IDENTITY_CCM[index], -4.0, 4.0))
 }
 
 fn clamp_finite(value: f64, fallback: f64, lower: f64, upper: f64) -> f64 {
@@ -89,6 +101,19 @@ fn read_double(
 
 fn read_bool(file: &glib::KeyFile, group: &str, key: &str, fallback: bool) -> bool {
     file.boolean(group, key).unwrap_or(fallback)
+}
+
+fn read_colour_matrix(file: &glib::KeyFile, group: &str) -> [f64; 9] {
+    std::array::from_fn(|index| {
+        read_double(
+            file,
+            group,
+            &format!("ccm-{}{}", index / 3, index % 3),
+            IDENTITY_CCM[index],
+            -4.0,
+            4.0,
+        )
+    })
 }
 
 fn camera_identity(camera: &aperture::Camera) -> String {
@@ -141,6 +166,8 @@ pub fn load(settings: &gio::Settings, camera: &aperture::Camera) -> Option<Camer
             auto_white_balance: read_bool(&file, &group, "auto-white-balance", true),
             red_gain: read_double(&file, &group, "red-gain", 1.0, 0.1, 4.0),
             blue_gain: read_double(&file, &group, "blue-gain", 1.0, 0.1, 4.0),
+            custom_colour_matrix: read_bool(&file, &group, "custom-colour-matrix", false),
+            colour_matrix: read_colour_matrix(&file, &group),
             gamma: read_double(&file, &group, "gamma", 2.2, 0.1, 10.0),
             saturation: read_double(&file, &group, "saturation", 1.0, 0.0, 2.0),
             contrast: read_double(&file, &group, "contrast", 1.0, 0.0, 2.0),
@@ -161,7 +188,7 @@ pub fn save(
     let file = profile_data(settings);
     let group = profile_group(camera);
 
-    file.set_integer(&group, "version", 2);
+    file.set_integer(&group, "version", 3);
     file.set_string(&group, "camera-identity", &camera_identity(camera));
     file.set_double(&group, "exposure", profile.exposure);
     file.set_boolean(&group, "auto-exposure", profile.auto_exposure);
@@ -170,6 +197,10 @@ pub fn save(
     file.set_boolean(&group, "auto-white-balance", profile.auto_white_balance);
     file.set_double(&group, "red-gain", profile.red_gain);
     file.set_double(&group, "blue-gain", profile.blue_gain);
+    file.set_boolean(&group, "custom-colour-matrix", profile.custom_colour_matrix);
+    for (index, value) in profile.colour_matrix.iter().enumerate() {
+        file.set_double(&group, &format!("ccm-{}{}", index / 3, index % 3), *value);
+    }
     file.set_double(&group, "gamma", profile.gamma);
     file.set_double(&group, "saturation", profile.saturation);
     file.set_double(&group, "contrast", profile.contrast);
@@ -204,6 +235,8 @@ mod tests {
             auto_white_balance: false,
             red_gain,
             blue_gain,
+            custom_colour_matrix: false,
+            colour_matrix: super::IDENTITY_CCM,
             gamma: 2.2,
             saturation: 1.0,
             contrast: 1.0,
@@ -225,5 +258,21 @@ mod tests {
         let clamped = profile(f64::NAN, f64::INFINITY).clamped();
         assert_eq!(clamped.red_gain, 1.0);
         assert_eq!(clamped.blue_gain, 1.0);
+    }
+
+    #[test]
+    fn invalid_colour_matrix_values_fall_back_to_identity_and_clamp() {
+        let mut input = super::IDENTITY_CCM;
+        input[0] = f64::NAN;
+        input[1] = -8.0;
+        input[8] = 8.0;
+        let mut candidate = profile(1.0, 1.0);
+        candidate.custom_colour_matrix = true;
+        candidate.colour_matrix = input;
+
+        let clamped = candidate.clamped();
+        assert_eq!(clamped.colour_matrix[0], 1.0);
+        assert_eq!(clamped.colour_matrix[1], -4.0);
+        assert_eq!(clamped.colour_matrix[8], 4.0);
     }
 }

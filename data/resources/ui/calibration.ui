@@ -87,6 +87,222 @@
             </child>
             <child>
               <object class="AdwPreferencesGroup">
+                <property name="title" translatable="yes">Colour matrix calibration</property>
+                <property name="description" translatable="yes">Correct camera RGB after white balance. Use a colour chart and keep each row near a total of 1 so neutral grey remains neutral.</property>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Use custom colour matrix</property>
+                    <property name="subtitle" translatable="yes">Applied only with automatic white balance turned off</property>
+                    <child>
+                      <object class="GtkSwitch" id="custom_colour_matrix">
+                        <property name="valign">center</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Red output · R G B inputs</property>
+                    <child>
+                      <object class="GtkBox" id="ccm_red_row">
+                        <property name="spacing">4</property>
+                        <property name="valign">center</property>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_00">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="value">1</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_01">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_02">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Green output · R G B inputs</property>
+                    <child>
+                      <object class="GtkBox" id="ccm_green_row">
+                        <property name="spacing">4</property>
+                        <property name="valign">center</property>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_10">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_11">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="value">1</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_12">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Blue output · R G B inputs</property>
+                    <child>
+                      <object class="GtkBox" id="ccm_blue_row">
+                        <property name="spacing">4</property>
+                        <property name="valign">center</property>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_20">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_21">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkSpinButton" id="ccm_22">
+                            <property name="width-chars">5</property>
+                            <property name="digits">2</property>
+                            <property name="numeric">True</property>
+                            <property name="adjustment">
+                              <object class="GtkAdjustment">
+                                <property name="lower">-4</property>
+                                <property name="upper">4</property>
+                                <property name="value">1</property>
+                                <property name="step-increment">0.01</property>
+                                <property name="page-increment">0.1</property>
+                              </object>
+                            </property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Starting points</property>
+                    <property name="subtitle" translatable="yes">Identity is neutral; Colour boost preserves grey while separating colours slightly</property>
+                    <child>
+                      <object class="GtkBox">
+                        <property name="spacing">6</property>
+                        <property name="valign">center</property>
+                        <child>
+                          <object class="GtkButton" id="identity_matrix_button">
+                            <property name="label" translatable="yes">Identity</property>
+                            <style>
+                              <class name="pill"/>
+                            </style>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="colour_boost_matrix_button">
+                            <property name="label" translatable="yes">Colour boost</property>
+                            <style>
+                              <class name="pill"/>
+                            </style>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwPreferencesGroup">
                 <property name="title" translatable="yes">Saved sensor profile</property>
                 <child>
                   <object class="AdwActionRow">
@@ -157,7 +373,7 @@
             </child>
             <child>
               <object class="GtkLabel">
-                <property name="label" translatable="yes">This profile stores real libcamera controls, including automatic/manual white balance, exposure, tone, colour and optional lens position. It cannot recreate Android's proprietary factory colour matrix, lens shading, denoise or multi-frame processing. Keep the reference photo with the profile so changes remain reproducible.</property>
+                <property name="label" translatable="yes">This profile stores real libcamera controls, including a manual 3×3 colour matrix, white balance, exposure, tone and optional lens position. The matrix can be chart-calibrated, but it does not recreate proprietary lens shading, denoise or multi-frame processing. Keep the reference photo and lighting notes so changes remain reproducible.</property>
                 <property name="wrap">True</property>
                 <property name="halign">fill</property>
                 <style>

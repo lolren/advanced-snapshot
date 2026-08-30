@@ -1356,6 +1356,88 @@ impl Viewfinder {
         ));
     }
 
+    /// Applies manual white-balance gains and a writable 3x3 colour
+    /// correction matrix in one request. Keeping the controls together avoids
+    /// a frame where the matrix is interpreted while automatic white balance
+    /// is still active.
+    pub fn set_manual_colour_calibration(&self, red_gain: f64, blue_gain: f64, matrix: [f64; 9]) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Colour calibration unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_white_balance_state();
+        let generation = imp.white_balance_generation.get();
+        let identity = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+        let matrix: [f64; 9] = std::array::from_fn(|index| {
+            let value = matrix[index];
+            if value.is_finite() {
+                value.clamp(-4.0, 4.0)
+            } else {
+                identity[index]
+            }
+        });
+        let arguments = [
+            serial.to_string(),
+            format!("{:.4}", red_gain.clamp(0.0, 4.0)),
+            format!("{:.4}", blue_gain.clamp(0.0, 4.0)),
+            format!("{:.4}", matrix[0]),
+            format!("{:.4}", matrix[1]),
+            format!("{:.4}", matrix[2]),
+            format!("{:.4}", matrix[3]),
+            format!("{:.4}", matrix[4]),
+            format!("{:.4}", matrix[5]),
+            format!("{:.4}", matrix[6]),
+            format!("{:.4}", matrix[7]),
+            format!("{:.4}", matrix[8]),
+        ];
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("colour-calibration"),
+            OsStr::new(&arguments[0]),
+            OsStr::new(&arguments[1]),
+            OsStr::new(&arguments[2]),
+            OsStr::new(&arguments[3]),
+            OsStr::new(&arguments[4]),
+            OsStr::new(&arguments[5]),
+            OsStr::new(&arguments[6]),
+            OsStr::new(&arguments[7]),
+            OsStr::new(&arguments[8]),
+            OsStr::new(&arguments[9]),
+            OsStr::new(&arguments[10]),
+            OsStr::new(&arguments[11]),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start colour-calibration helper: {err}");
+                return;
+            }
+        };
+        imp.white_balance_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.white_balance_generation.get() != generation {
+                    return;
+                }
+                imp.white_balance_process.take();
+                if let Err(err) = result {
+                    log::debug!("Colour calibration was not applied: {err}");
+                }
+            }
+        ));
+    }
+
     /// Restores the software ISP's automatic white-balance loop.
     pub fn set_auto_white_balance(&self) {
         if !matches!(self.state(), ViewfinderState::Ready) {

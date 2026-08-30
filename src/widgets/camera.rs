@@ -69,6 +69,9 @@ mod imp {
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
         pub manual_exposure_handler: RefCell<Option<glib::source::SourceId>>,
         pub white_balance_handler: RefCell<Option<glib::source::SourceId>>,
+        pub custom_colour_matrix: Cell<bool>,
+        pub colour_matrix: Cell<[f64; 9]>,
+        pub colour_matrix_reset_pending: Cell<bool>,
         pub manual_focus_handler: RefCell<Option<glib::source::SourceId>>,
         pub suppress_manual_focus: Cell<bool>,
         pub flash_generation: Cell<u64>,
@@ -223,6 +226,7 @@ mod imp {
             self.parent_constructed();
 
             let obj = self.obj();
+            self.colour_matrix.set(camera_profile::IDENTITY_CCM);
 
             let provider = aperture::DeviceProvider::instance();
             self.provider.set(provider.clone()).unwrap();
@@ -1074,7 +1078,21 @@ impl Camera {
     fn apply_white_balance(&self) {
         let imp = self.imp();
         if imp.auto_white_balance_switch.is_active() {
+            imp.colour_matrix_reset_pending.set(false);
             imp.viewfinder.set_auto_white_balance();
+        } else if imp.custom_colour_matrix.get() {
+            imp.colour_matrix_reset_pending.set(false);
+            imp.viewfinder.set_manual_colour_calibration(
+                imp.red_gain_scale.value(),
+                imp.blue_gain_scale.value(),
+                imp.colour_matrix.get(),
+            );
+        } else if imp.colour_matrix_reset_pending.replace(false) {
+            imp.viewfinder.set_manual_colour_calibration(
+                imp.red_gain_scale.value(),
+                imp.blue_gain_scale.value(),
+                camera_profile::IDENTITY_CCM,
+            );
         } else {
             imp.viewfinder
                 .set_manual_white_balance(imp.red_gain_scale.value(), imp.blue_gain_scale.value());
@@ -1238,6 +1256,8 @@ impl Camera {
             auto_white_balance: imp.auto_white_balance_switch.is_active(),
             red_gain: imp.red_gain_scale.value(),
             blue_gain: imp.blue_gain_scale.value(),
+            custom_colour_matrix: imp.custom_colour_matrix.get(),
+            colour_matrix: imp.colour_matrix.get(),
             gamma: imp.gamma_scale.value(),
             saturation: imp.saturation_scale.value(),
             contrast: imp.contrast_scale.value(),
@@ -1258,6 +1278,8 @@ impl Camera {
             auto_white_balance: true,
             red_gain: 1.0,
             blue_gain: 1.0,
+            custom_colour_matrix: false,
+            colour_matrix: camera_profile::IDENTITY_CCM,
             gamma: image_gamma_default(&camera_name),
             saturation,
             contrast,
@@ -1277,6 +1299,13 @@ impl Camera {
             .set_active(profile.auto_white_balance);
         imp.red_gain_scale.set_value(profile.red_gain);
         imp.blue_gain_scale.set_value(profile.blue_gain);
+        let was_custom = imp
+            .custom_colour_matrix
+            .replace(profile.custom_colour_matrix);
+        imp.colour_matrix.set(profile.colour_matrix);
+        if was_custom && !profile.custom_colour_matrix {
+            imp.colour_matrix_reset_pending.set(true);
+        }
         imp.saturation_scale.set_value(profile.saturation);
         imp.contrast_scale.set_value(profile.contrast);
         imp.sharpness_scale.set_value(profile.sharpness);
@@ -1329,6 +1358,25 @@ impl Camera {
             saved,
         );
 
+        dialog.connect_colour_calibration_changed(glib::clone!(
+            #[weak(rename_to = camera_widget)]
+            self,
+            move |dialog| {
+                camera_widget.set_colour_calibration(
+                    dialog.custom_colour_matrix(),
+                    dialog.colour_matrix(),
+                );
+                dialog.set_current_profile(camera_widget.current_profile());
+                if dialog.custom_colour_matrix() {
+                    dialog.set_status(
+                        "Colour matrix will update the live preview while manual white balance is active.",
+                    );
+                } else {
+                    dialog.set_status("Sensor/identity colour processing selected.");
+                }
+            }
+        ));
+
         dialog.connect_save(glib::clone!(
             #[weak(rename_to = camera_widget)]
             self,
@@ -1337,11 +1385,16 @@ impl Camera {
             #[strong]
             settings,
             move |dialog| {
+                camera_widget.set_colour_calibration(
+                    dialog.custom_colour_matrix(),
+                    dialog.colour_matrix(),
+                );
                 let mut profile = camera_widget.current_profile();
                 profile.restore_manual_focus = dialog.restore_manual_focus();
                 match camera_profile::save(&settings, &camera, profile) {
                     Ok(()) => {
                         camera_widget.apply_profile(profile);
+                        dialog.set_current_profile(profile);
                         dialog.set_saved_profile(Some(profile));
                         dialog.set_status("Saved for this sensor. The profile will be reused when it is selected.");
                     }
@@ -1359,6 +1412,11 @@ impl Camera {
             move |dialog| {
                 if let Some(profile) = camera_profile::load(&settings, &camera) {
                     camera_widget.apply_profile(profile);
+                    dialog.set_colour_calibration(
+                        profile.custom_colour_matrix,
+                        profile.colour_matrix,
+                    );
+                    dialog.set_current_profile(profile);
                     dialog.set_status("Saved profile applied to the active sensor.");
                 } else {
                     dialog.set_status("No saved profile is available for this sensor.");
@@ -1375,7 +1433,13 @@ impl Camera {
             move |dialog| {
                 match camera_profile::clear(&settings, &camera) {
                     Ok(()) => {
-                        camera_widget.apply_profile(camera_widget.default_profile(&camera));
+                        let profile = camera_widget.default_profile(&camera);
+                        camera_widget.apply_profile(profile);
+                        dialog.set_colour_calibration(
+                            profile.custom_colour_matrix,
+                            profile.colour_matrix,
+                        );
+                        dialog.set_current_profile(profile);
                         dialog.set_saved_profile(None);
                         dialog.set_status(
                             "Profile cleared; built-in defaults and continuous autofocus restored.",
@@ -1386,6 +1450,17 @@ impl Camera {
             }
         ));
         dialog.present(Some(&window));
+    }
+
+    fn set_colour_calibration(&self, custom: bool, matrix: [f64; 9]) {
+        let imp = self.imp();
+        let was_custom = imp.custom_colour_matrix.replace(custom);
+        imp.colour_matrix
+            .set(camera_profile::clamp_colour_matrix(matrix));
+        if was_custom && !custom {
+            imp.colour_matrix_reset_pending.set(true);
+        }
+        self.queue_white_balance();
     }
 
     fn reset_image_controls(&self) {

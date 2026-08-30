@@ -36,6 +36,7 @@ enum operation {
 	OPERATION_AUTO_EXPOSURE,
 	OPERATION_MANUAL_WHITE_BALANCE,
 	OPERATION_AUTO_WHITE_BALANCE,
+	OPERATION_COLOUR_CALIBRATION,
 };
 
 enum stage {
@@ -80,6 +81,7 @@ struct app {
 	double analogue_gain;
 	double red_gain;
 	double blue_gain;
+	double colour_matrix[9];
 
 	uint32_t af_mode_id;
 	uint32_t af_trigger_id;
@@ -97,6 +99,7 @@ struct app {
 	uint32_t analogue_gain_mode_id;
 	uint32_t awb_enable_id;
 	uint32_t colour_gains_id;
+	uint32_t colour_correction_matrix_id;
 	int crop_x;
 	int crop_y;
 	unsigned int crop_width;
@@ -226,6 +229,25 @@ static bool parse_int32(const char *text, int32_t *value)
 	return true;
 }
 
+static bool parse_colour_calibration(int argc, char **argv, struct app *app)
+{
+	if (argc != 14 || !parse_uint64(argv[2], &app->target_serial) ||
+	    !parse_double(argv[3], &app->red_gain) ||
+	    !parse_double(argv[4], &app->blue_gain) ||
+	    app->red_gain < 0.0 || app->red_gain > 4.0 ||
+	    app->blue_gain < 0.0 || app->blue_gain > 4.0)
+		return false;
+
+	for (unsigned int i = 0; i < 9; ++i) {
+		if (!parse_double(argv[i + 5], &app->colour_matrix[i]) ||
+		    app->colour_matrix[i] < -4.0 ||
+		    app->colour_matrix[i] > 4.0)
+			return false;
+	}
+
+	return true;
+}
+
 static bool parse_crop(struct app *app, const char *text)
 {
 	char extra;
@@ -314,6 +336,17 @@ static void add_float_pair_property(struct spa_pod_builder *builder, uint32_t id
 	spa_pod_builder_pop(builder, &pair_frame);
 }
 
+static void add_float_matrix_property(struct spa_pod_builder *builder,
+				      uint32_t id, const double values[9])
+{
+	struct spa_pod_frame matrix_frame;
+	spa_pod_builder_prop(builder, id, 0);
+	spa_pod_builder_push_struct(builder, &matrix_frame);
+	for (unsigned int i = 0; i < 9; ++i)
+		spa_pod_builder_float(builder, (float)values[i]);
+	spa_pod_builder_pop(builder, &matrix_frame);
+}
+
 static int apply_controls(struct app *app)
 {
 	uint8_t buffer[512];
@@ -364,6 +397,14 @@ static int apply_controls(struct app *app)
 					(float)app->red_gain, (float)app->blue_gain);
 	} else if (app->operation == OPERATION_AUTO_WHITE_BALANCE) {
 		add_bool_property(&builder, app->awb_enable_id, true);
+	} else if (app->operation == OPERATION_COLOUR_CALIBRATION) {
+		/* A manual CCM is valid only in the same request as disabled AWB. */
+		add_bool_property(&builder, app->awb_enable_id, false);
+		add_float_pair_property(&builder, app->colour_gains_id,
+					(float)app->red_gain, (float)app->blue_gain);
+		add_float_matrix_property(&builder,
+					  app->colour_correction_matrix_id,
+					  app->colour_matrix);
 	} else {
 		double x = app->focus_x;
 		double y = app->focus_y;
@@ -462,6 +503,8 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->awb_enable_id = control_id;
 	else if (spa_streq(description, "ColourGains"))
 		app->colour_gains_id = control_id;
+	else if (spa_streq(description, "ColourCorrectionMatrix"))
+		app->colour_correction_matrix_id = control_id;
 }
 
 static void request_controls(struct app *app)
@@ -640,6 +683,13 @@ static void core_done(void *data, uint32_t id, int seq)
 			       "camera does not support automatic white balance control");
 			return;
 		}
+		if (app->operation == OPERATION_COLOUR_CALIBRATION &&
+		    (app->awb_enable_id == 0 || app->colour_gains_id == 0 ||
+		     app->colour_correction_matrix_id == 0)) {
+			finish(app, 3,
+			       "camera does not support colour-matrix calibration");
+			return;
+		}
 
 		if (app->operation == OPERATION_FOCUS)
 			app->baseline_af_trigger_generation =
@@ -718,9 +768,10 @@ static void usage(const char *program)
 		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
 		"       %s auto SERIAL\n"
 		"       %s white-balance SERIAL RED_GAIN BLUE_GAIN\n"
-		"       %s auto-white-balance SERIAL\n",
+		"       %s auto-white-balance SERIAL\n"
+		"       %s colour-calibration SERIAL RED_GAIN BLUE_GAIN M00 M01 M02 M10 M11 M12 M20 M21 M22\n",
 		program, program, program, program, program, program, program,
-		program, program);
+		program, program, program);
 }
 
 int main(int argc, char **argv)
@@ -787,6 +838,9 @@ int main(int argc, char **argv)
 	} else if (argc == 3 && spa_streq(argv[1], "auto-white-balance") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_AUTO_WHITE_BALANCE;
+	} else if (argc >= 2 && spa_streq(argv[1], "colour-calibration") &&
+		   parse_colour_calibration(argc, argv, &app)) {
+		app.operation = OPERATION_COLOUR_CALIBRATION;
 	} else {
 		usage(argv[0]);
 		return 2;

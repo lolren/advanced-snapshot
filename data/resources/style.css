@@ -89,7 +89,6 @@ camera.portrait .recording-label {
 }
 
 camera .zoom-indicator {
-  margin-top: 18px;
   min-height: 28px;
   min-width: 52px;
   padding: 3px 12px;
