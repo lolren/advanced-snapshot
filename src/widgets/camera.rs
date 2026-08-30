@@ -98,6 +98,8 @@ mod imp {
         #[template_child]
         pub viewfinder: TemplateChild<aperture::Viewfinder>,
         #[template_child]
+        pub image_controls_revealer: TemplateChild<gtk::Revealer>,
+        #[template_child]
         pub flash_bin: TemplateChild<crate::FlashBin>,
         #[template_child]
         pub qr_screen_bin: TemplateChild<crate::QrScreenBin>,
@@ -116,6 +118,8 @@ mod imp {
         pub sheet_stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub qr_bottom_sheet: TemplateChild<crate::QrBottomSheet>,
+        #[template_child]
+        pub image_controls_scroll: TemplateChild<gtk::ScrolledWindow>,
         #[template_child]
         pub exposure_scale: TemplateChild<gtk::Scale>,
         #[template_child]
@@ -399,7 +403,10 @@ mod imp {
                 #[weak]
                 obj,
                 move |_, n_press, x, y| {
-                    if n_press != 1 || obj.imp().bottom_sheet.is_open() {
+                    if n_press != 1
+                        || obj.imp().bottom_sheet.is_open()
+                        || obj.imp().image_controls_revealer.reveals_child()
+                    {
                         return;
                     }
 
@@ -941,8 +948,21 @@ impl Camera {
 
     pub fn show_image_controls(&self) {
         let imp = self.imp();
-        imp.sheet_stack.set_visible_child_name("image-controls");
-        imp.bottom_sheet.set_open(true);
+        /*
+         * AdwBottomSheet measures a GtkScrolledWindow at its minimum height;
+         * on a phone that minimum is zero, so the old sheet could open as an
+         * empty strip even though all controls existed in the UI resource.
+         * Move the already-bound panel into a normal in-layout revealer on
+         * first use. The panel then has a bounded, scrollable height and does
+         * not depend on libadwaita's sheet measurement policy.
+         */
+        if imp.image_controls_revealer.child().is_none() {
+            imp.image_controls_scroll.unparent();
+            imp.image_controls_revealer
+                .set_child(Some(&*imp.image_controls_scroll));
+        }
+        imp.image_controls_revealer
+            .set_reveal_child(!imp.image_controls_revealer.reveals_child());
     }
 
     fn queue_image_adjustments(&self) {
