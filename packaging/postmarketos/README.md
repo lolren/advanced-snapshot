@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`2c93c2fd094ad3011b9466ab5fc0779fda566cce`, and Cargo dependencies are
+`802b537e46cfd8101da8726c8e4c4601d866d4b8`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -24,12 +24,12 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r16.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r22.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r16.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r22.apk
 ```
 
-Package revision r16 contains the manual shutter/analogue-gain UI, bounded
+Package revision r22 contains the manual shutter/analogue-gain UI, bounded
 rear-flash work and opt-in Software HDR on top of the serialized image-
 adjustment transport. HDR captures three exposure-bracketed JPEGs and merges
 them with the installed `advanced-snapshot-hdr` helper. The helper aligns a
@@ -39,7 +39,15 @@ out of scope. Automatic exposure is enabled by default; disabling it submits
 standard libcamera controls in microseconds and linear gain units. These are
 userspace features and still require the matching libcamera r26 candidate plus
 physical phone acceptance. The helper is included in the main package and is
-covered by the staged install check.
+covered by the staged install check. The r21 UI also keeps the labelled Image
+Controls entry in a direct toolbar above the preview and renders the control
+panel in a bounded, scrollable in-layout revealer, so the controls are
+visible on the OnePlus 6T's small display without depending on bottom-sheet
+natural-size negotiation. Rear sensors are returned to continuous autofocus
+after the preview starts; the panel also exposes an explicit Auto button.
+Tapping the preview requests one-shot autofocus at that location, while the
+manual-focus slider remains an intentional lock. The fixed-focus front sensor
+keeps those rear-only controls disabled.
 
 `APK_KEY_DIR` and `APK_KEY_FILE` are optional and are useful for validating a
 local pmbootstrap build signed by that buildroot's development key. The key
