@@ -409,7 +409,7 @@ mod imp {
                     obj,
                     move |dropdown| obj.apply_colour_preset(dropdown.selected())
                 ));
-            self.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
+            obj.set_colour_preset_selection(COLOUR_PRESET_SENSOR_DEFAULT);
             self.auto_exposure_switch
                 .connect_active_notify(glib::clone!(
                     #[weak]
