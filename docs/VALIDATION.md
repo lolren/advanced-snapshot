@@ -1,5 +1,49 @@
 # Validation record
 
+## 0.1.0-r29 reliable full-resolution still checkpoint
+
+- Date: 2026-08-30
+- Source commit: `fbfdaa9cd98b84eb695a9212e6890418bbce9bc0`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r28 and PipeWire libcamera SPA r7
+- Source archive SHA-512:
+  `8a614b5aac3ed173b4874e031e85c8bafcfcf62453e2d08cf4d0ffc2c2ec0ae2c2731096a5193758f0fae8250f515fdfe929f3dd9d65ebf755c096ac1acfe26c`
+- Main APK: `advanced-snapshot-0.1.0-r29.apk`
+  (`b4676c151d1281403d481b451861c7321f200ce55cdbb33cb702470772308caa`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r29.apk`
+  (`72ecb8cc77dea006ed9fc374307c1b5e8e14017df17b3697be7c7085eb329796`)
+
+The pinned GitHub archive built successfully in the pmbootstrap AArch64
+buildroot. The Cargo release/test builds, formatting and source checks passed.
+The complete package validator verified both signatures, architecture,
+manifests, independent IDs and resources, schema, AppStream metadata, language
+split and zero file ownership overlap with `snapshot-50.0-r3`.
+
+This source releases the 1280x720 preview before a phone still, opens one fresh
+fixed 2048x1536 raw stream, drops one second of warm-up frames, encodes and
+validates one JPEG, tears the temporary pipeline down, then restores preview.
+The operation is cancellation-safe and has a 15-second deadline. Generic
+cameras without a concrete raw still mode retain the inherited Camerabin path.
+The device probe records why the legacy wrapper path was rejected: it produced
+empty image-pad caps or failed to restore preview after repeated retargeting.
+
+The source-equivalent r28 candidate completed six consecutive IMX371 captures.
+It also switched to IMX519 and IMX376 and saved one image after a tap-focus
+request on each rear sensor. All eight files were valid 2048x1536 baseline
+JPEGs with application EXIF, and preview recovered after every save. The logs
+contained zero standalone-capture, timeout, preview-recovery, `not-negotiated`,
+bus or panic errors. The exact r29 pair was then installed without reboot and
+produced a 4,707,686-byte IMX371 baseline JPEG at 2048x1536; preview recovered,
+the app remained active and the same fatal-error count was zero. PipeWire and
+WirePlumber remained active after the debug instance stopped.
+
+This checkpoint proves the packaged still-capture lifecycle and all-sensor
+routing. It does not claim Android-vendor colour parity. The reference scene
+still shows softness/low local contrast on IMX519 and a green cast plus visible
+fixed-pattern grid noise on IMX376. Factory CCM, controllable white balance,
+lens shading, denoise and calibrated focus-distance work remain explicit
+follow-up gates.
+
 ## 0.1.0-r24 OnePlus 6T Gamma and calibration checkpoint
 
 - Date: 2026-08-30

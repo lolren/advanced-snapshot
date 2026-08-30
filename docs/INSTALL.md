@@ -39,6 +39,16 @@ saving a frame while the lens is between scan positions. The wait is bounded
 and best-effort, so fixed-focus cameras and older PipeWire stacks retain the
 normal capture path.
 
+On cameras advertising a concrete raw still mode, Advanced Snapshot does not
+ask `wrappercamerabinsrc` to renegotiate the live PipeWire source from preview
+resolution to photo resolution. The application stops the 1280x720 preview,
+opens a temporary fixed 2048x1536 raw pipeline, discards one second of warm-up
+frames for 3A convergence, encodes exactly one JPEG, validates the output and
+then restores preview. Capture has a 15-second timeout and teardown/cancellation
+always returns the temporary pipeline to NULL. Cameras without a suitable raw
+mode keep the inherited Camerabin path. The rationale and diagnostic probe are
+documented in `tests/device/README.md`.
+
 On the OnePlus 6T, **Image Controls → Manual focus position** sends the
 standard `LensPosition` control through the installed helper. Use 0 for the far
 end and 2 for the near end; the slider is disabled for the fixed-focus front
@@ -83,20 +93,20 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r24 package
+## OnePlus 6T r29 package
 
 The current tested package is source commit
-`1b7b6e681d310c79b96ee98f96e150540d5bf962`, package revision r24. Build it
+`fbfdaa9cd98b84eb695a9212e6890418bbce9bc0`, package revision r29. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
 to the booted phone. The package is independent of distro Snapshot, so it can
 be upgraded or removed without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r24.apk \
-  advanced-snapshot-lang-0.1.0-r24.apk user@PHONE:/tmp/
+scp advanced-snapshot-0.1.0-r29.apk \
+  advanced-snapshot-lang-0.1.0-r29.apk user@PHONE:/tmp/
 ssh user@PHONE 'sudo apk add --allow-untrusted \
-  /tmp/advanced-snapshot-0.1.0-r24.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r24.apk'
+  /tmp/advanced-snapshot-0.1.0-r29.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r29.apk'
 ```
 
 Stop any running Advanced Snapshot window before replacing the files, then

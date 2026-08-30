@@ -18,9 +18,10 @@ postmarketOS into an unmaintainable permanent fork.
 | --- | --- | --- |
 | Independent app ID and settings | Co-installs with GNOME Snapshot and can be rolled back separately | Implemented |
 | Always-visible image-controls entry | Puts a labelled **Image Controls** button in a direct toolbar above the preview so the adjustment sheet stays discoverable on every phone orientation and breakpoint without opening the hamburger menu | Implemented |
-| Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented |
+| Full-frame still selection | Saves the largest 4:3 mode up to 2048x1536 instead of preview resolution | Implemented and accepted on all three OnePlus 6T sensors |
+| Reliable repeated phone stills | Releases the low-power preview, opens one fixed full-resolution raw stream for the JPEG, then restores preview instead of asking legacy Camerabin to retarget one PipeWire source between incompatible modes | Implemented; six-shot IMX371 stress plus IMX519/IMX376 captures passed without negotiation or recovery errors |
 | Capture failure handling | Rejects missing, empty, directory and non-local still outputs before gallery insertion | Implemented |
-| Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented in source; phone acceptance pending |
+| Software-ISP-friendly preview | Restricts the live pipeline to a selected supported 720p-class mode when the camera advertises concrete modes, while keeping still capture at the higher photo mode | Implemented; 1280x720/30 preview recovery accepted around repeated full-resolution captures |
 | Latest-frame preview scheduling | Uses a one-buffer downstream-leaky queue so a slow compositor or software ISP drops old frames instead of showing a delayed viewfinder | Implemented |
 | Serialized camera lifecycle | Coalesces duplicate starts, waits for camerabin to reach NULL before camera/source reconfiguration, and invalidates stale asynchronous starts during stop, teardown or recovery | Implemented; protects libcamera/PipeWire stream ownership |
 | Sensor-aware tap-to-focus | Maps preview taps through letterboxing, crop and orientation into a real libcamera AF window | Implemented on supported rear cameras |
@@ -127,10 +128,13 @@ advanced-snapshot-hdr --output merged.jpg \
 
 The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r28,
 PipeWire libcamera SPA r7 and postmarketOS edge. The current app package is the
-source-built r24 development line. The lower layer passes all-sensor stream
+source-built r29 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
-manual lens-position sweep; saved-photo colour and UI acceptance remain
-device-scene checks rather than a claim of Android vendor parity.
+manual lens-position sweep. The application now also passes repeated native
+still capture on IMX371 and one full-resolution capture after tap-focus on each
+rear module. Saved-photo colour remains a separate device-scene gate rather
+than a claim of Android vendor parity: current reference images still show a
+green cast/fixed-pattern noise on IMX376 and softness on IMX519.
 Generic webcams still use the inherited Snapshot paths; phone-specific
 controls degrade safely when absent.
 
@@ -154,7 +158,8 @@ find stage -type f -o -type l
 ```
 
 On the OnePlus 6T reference stack, the bounded non-image autofocus acceptance
-test is documented in [tests/device](tests/device).
+test and the standalone Camerabin negotiation probe are documented in
+[tests/device](tests/device).
 
 Do not replace distro-owned GNOME Snapshot files. Advanced Snapshot uses a
 different binary, helper, D-Bus name, icon name, schema and resource namespace.
@@ -173,27 +178,34 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`1b7b6e681d310c79b96ee98f96e150540d5bf962`. It includes the labelled
-**Image Controls** entry, Gamma, sensor-model tone defaults and the
-per-sensor **Camera calibration** dialog. The exact package pair is recorded
-in `docs/VALIDATION.md` and is installed on the connected OnePlus 6T without
-reboot. The main APK is `advanced-snapshot-0.1.0-r24.apk` with SHA-256
-`3e50832180b548add81bde75c133b4779787603940619c7025917e9e1af3b445`; the
-language APK is `advanced-snapshot-lang-0.1.0-r24.apk` with SHA-256
-`b465ffde5a61c522e13f1a7f348f7e7a6afa4bb63de2c73d798c79291a070341`.
+`fbfdaa9cd98b84eb695a9212e6890418bbce9bc0`. It includes the labelled
+**Image Controls** entry, Gamma, sensor-model tone defaults, per-sensor
+**Camera calibration** profiles and the reliable standalone full-resolution
+still path. The exact package pair is recorded in `docs/VALIDATION.md` and is
+installed on the connected OnePlus 6T without reboot. The main APK is
+`advanced-snapshot-0.1.0-r29.apk` with SHA-256
+`b4676c151d1281403d481b451861c7321f200ce55cdbb33cb702470772308caa`; the
+language APK is `advanced-snapshot-lang-0.1.0-r29.apk` with SHA-256
+`72ecb8cc77dea006ed9fc374307c1b5e8e14017df17b3697be7c7085eb329796`.
 
-On the reference phone, the r24 controls panel and calibration dialog were
-opened over SSH. A profile was saved for the front sensor, appeared in the
-new `camera-calibration-profiles` GSettings key, and was then cleared. The
-standard Gamma control accepted a 2.0 request and a 2.2 restore through the
-installed helper. This validates the UI, persistence and control transport;
-it does not claim a factory colour matrix or Android-vendor ISP parity.
+The source-equivalent r28 candidate completed six consecutive IMX371 captures
+and one capture after tap-focus on each rear sensor. Every file was a valid
+2048x1536 baseline JPEG, preview recovered after every capture and the logs
+contained no timeout, negotiation, bus, recovery or panic error. The exact
+r29 package then repeated a full-resolution IMX371 capture and preview
+recovery with the same zero-error result. This validates package installation,
+repeated still lifecycle and all-sensor routing; it does not claim a factory
+colour matrix, white-balance tuning, lens-shading calibration, proprietary
+denoise or Android-vendor ISP parity.
 
 With libcamera/IPA r28 and PipeWire SPA r7, both rear modules pass the native
 focus helper regression and the all-camera Waydroid probe. Manual rear focus
 is a normalized 0–2 device range, not a factory-calibrated distance scale.
 Saved-photo colour/quality comparison against a controlled chart and Android
-vendor processing remains an explicit acceptance gate.
+vendor processing remains an explicit acceptance gate. Current reference
+images show softness/low local contrast on IMX519 and a green cast with
+fixed-pattern grid noise on IMX376; these defects are tracked as calibration
+work rather than hidden behind a stronger saturation preset.
 
 ## Project status
 
@@ -256,14 +268,14 @@ intermittent `not-negotiated`, allocator or stream-drain errors during rapid
 open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
-The current r24 source is commit
-`1b7b6e681d310c79b96ee98f96e150540d5bf962` and includes the same lifecycle
-guard plus the camerabin NULL barrier, GStreamer state-tuple compatibility fix,
+The current r29 source is commit
+`fbfdaa9cd98b84eb695a9212e6890418bbce9bc0` and includes the same lifecycle
+guard plus the Camerabin NULL barrier, GStreamer state-tuple compatibility fix,
 rear manual-focus slider, explicit return to continuous autofocus, the
-always-visible Image Controls entry, Gamma and the per-sensor calibration
-profile tool. The native focus path and lower-layer manual range are
-live-tested; visual preview, saved still, video and physical touchscreen
-acceptance remain separate device gates.
+always-visible Image Controls entry, Gamma, per-sensor calibration profiles and
+the bounded standalone full-resolution still path. Native focus, all-sensor
+preview and repeated saved stills are live-tested; calibrated colour, video and
+long-run battery acceptance remain separate device gates.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
