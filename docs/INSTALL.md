@@ -46,6 +46,18 @@ camera. A preview tap returns to one-shot autofocus, and **Reset** returns to
 continuous autofocus. If the control is missing, the UI remains usable and
 logs the unavailable capability instead of writing raw V4L2 values.
 
+The **Gamma** slider sends the standard `Gamma` property when the selected
+camera advertises it. The OnePlus 6T lower layer starts the IMX371, IMX376 and
+IMX519 sensors at the conservative 2.0, 2.1 and 2.2 values respectively. The
+**Camera calibration** button opens a mobile dialog for tuning Gamma, Colour,
+Contrast, Detail, Exposure and focus against a grey card or colour chart. Save
+the current values after capturing a reference photo; the profile is versioned
+and keyed by the stable libcamera node identity, not the PipeWire serial. Use
+**Apply Saved Profile** to restore it, **Restore manual focus** only when a
+fixed lens position is intentional, and **Clear Saved Profile** to return to
+the built-in defaults. This profile tool cannot create missing white-balance,
+CCM, lens-shading or proprietary denoise data.
+
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes
@@ -70,6 +82,28 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static"`. See
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
+
+## OnePlus 6T r24 package
+
+The current tested package is source commit
+`1b7b6e681d310c79b96ee98f96e150540d5bf962`, package revision r24. Build it
+from the pinned recipe as described above, validate both APKs, and copy them
+to the booted phone. The package is independent of distro Snapshot, so it can
+be upgraded or removed without replacing `/usr/bin/snapshot`:
+
+```sh
+scp advanced-snapshot-0.1.0-r24.apk \
+  advanced-snapshot-lang-0.1.0-r24.apk user@PHONE:/tmp/
+ssh user@PHONE 'sudo apk add --allow-untrusted \
+  /tmp/advanced-snapshot-0.1.0-r24.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r24.apk'
+```
+
+Stop any running Advanced Snapshot window before replacing the files, then
+launch `advanced-snapshot` again. No phone reboot is required for an
+application-only update. Keep the previous APK pair until the new preview,
+focus, calibration, still and video checks pass; remove only the independent
+package to roll back to distro Snapshot.
 
 ## Installation policy
 

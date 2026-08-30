@@ -2,7 +2,7 @@
 
 This aport builds Advanced Snapshot as a separate package; it never replaces
 the distro `snapshot` package. The source is pinned to commit
-`35aea283224d706b76b32df33d2fdd66407533c0`, and Cargo dependencies are
+`1b7b6e681d310c79b96ee98f96e150540d5bf962`, and Cargo dependencies are
 resolved from `Cargo.lock` into a local vendor tree before compilation.
 
 ## Build
@@ -24,12 +24,12 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r23.apk \
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r24.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r23.apk
+  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r24.apk
 ```
 
-Package revision r23 contains the manual shutter/analogue-gain UI, bounded
+Package revision r24 contains the manual shutter/analogue-gain UI, bounded
 rear-flash work and opt-in Software HDR on top of the serialized image-
 adjustment transport. HDR captures three exposure-bracketed JPEGs and merges
 them with the installed `advanced-snapshot-hdr` helper. The helper aligns a
@@ -37,9 +37,9 @@ confidence-gated global translation against the middle exposure before fusion;
 moving subjects, rotation, parallax and vendor-ISP parity remain explicitly
 out of scope. Automatic exposure is enabled by default; disabling it submits
 standard libcamera controls in microseconds and linear gain units. These are
-userspace features and still require the matching libcamera r26 candidate plus
+userspace features and still require the matching libcamera r28 candidate plus
 physical phone acceptance. The helper is included in the main package and is
-covered by the staged install check. The r23 UI also keeps the labelled Image
+covered by the staged install check. The r24 UI also keeps the labelled Image
 Controls entry in a direct toolbar above the preview and renders the control
 panel in a bounded, scrollable in-layout revealer, so the controls are
 visible on the OnePlus 6T's small display without depending on bottom-sheet
@@ -52,8 +52,13 @@ keeps those rear-only controls disabled. Gamma is exposed as the standard
 per-sensor profile in GSettings, keyed by the stable libcamera node identity;
 it can restore image controls and optionally a deliberate manual focus
 position while keeping continuous autofocus as the default. The current
-GTK/glib compile fix is included in source commit
-`35aea283224d706b76b32df33d2fdd66407533c0`.
+GTK/glib compile fix and sensor-model tone-default fix are included in source
+commit `1b7b6e681d310c79b96ee98f96e150540d5bf962`.
+
+The reference r24 build produced main APK SHA-256
+`3e50832180b548add81bde75c133b4779787603940619c7025917e9e1af3b445` and
+language APK SHA-256
+`b465ffde5a61c522e13f1a7f348f7e7a6afa4bb63de2c73d798c79291a070341`.
 
 `APK_KEY_DIR` and `APK_KEY_FILE` are optional and are useful for validating a
 local pmbootstrap build signed by that buildroot's development key. The key

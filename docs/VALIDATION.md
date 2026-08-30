@@ -1,5 +1,41 @@
 # Validation record
 
+## 0.1.0-r24 OnePlus 6T Gamma and calibration checkpoint
+
+- Date: 2026-08-30
+- Source commit: `1b7b6e681d310c79b96ee98f96e150540d5bf962`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r28 and PipeWire libcamera SPA r7
+- Source archive SHA-512:
+  `06f2a4a69ee4678e00cca56a22f6bede574d9d3d67c5886afe837c727b55bea4a0d60d4c782ea08ecef366c8346417cd57075f6eba1599fbd4e675618fabe1a9`
+- Main APK: `advanced-snapshot-0.1.0-r24.apk`
+  (`3e50832180b548add81bde75c133b4779787603940619c7025917e9e1af3b445`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r24.apk`
+  (`b465ffde5a61c522e13f1a7f348f7e7a6afa4bb63de2c73d798c79291a070341`)
+
+The package was built from the committed recipe with pmbootstrap's AArch64
+crossdirect toolchain. The Cargo release build, application test build,
+`cargo fmt --all -- --check`, resource/schema checks and the complete APK
+validator passed. The validator also passed against `snapshot-50.0-r3` and
+confirmed no file ownership overlap.
+
+The exact r24 pair was installed on the connected OnePlus 6T without reboot.
+`apk info` reports r24 and the installed schema exposes
+`camera-calibration-profiles`. The visible Image Controls panel contains Auto
+focus, Camera calibration, rear manual focus, EV, automatic/manual exposure,
+shutter, analogue gain, Colour, Contrast, Detail, Gamma, Zoom, Hardware flash,
+Software HDR and Reset. The calibration dialog was opened on the device; a
+profile was saved for one sensor, verified in GSettings, and cleared again.
+The standard Gamma transport accepted a 2.0 request and a 2.2 restore with
+the installed helper. This checkpoint validates package/UI/persistence and
+Gamma transport. It does not claim a factory CCM, white-balance matrix,
+lens-shading table, proprietary denoise or Android-vendor ISP parity.
+
+The application-only r24 installation left the phone running and retained
+the prior package as the rollback reference. Keep visual still-quality,
+preview-latency, video-playback and long-run battery measurements as separate
+device-scene acceptance gates.
+
 ## 0.1.0-r16 OnePlus 6T manual-focus and visible-controls checkpoint
 
 - Date: 2026-08-29

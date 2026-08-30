@@ -16,10 +16,12 @@ camera stack” must always agree.
 | Fixed focus | No focus affordance | Camera advertises no AF controls | Front stream works; focus request reports unsupported |
 | Exposure | -1..+1 EV UI | Standard `ExposureValue` | Metadata echoes request and pixels move unless sensor-limited |
 | Manual shutter and gain | Automatic-exposure switch plus shutter-time and analogue-gain controls | `ExposureTimeMode`, `ExposureTime`, `AnalogueGainMode` and `AnalogueGain` with valid sensor ranges | Manual requests persist for subsequent frames; switching automatic mode restores statistics-driven regulation |
-| Sensor-aware startup defaults | Applies the selected sensor's tuned colour/contrast defaults even when Aperture selects the first camera during startup | Camera display-name model matching | IMX371, IMX376 and IMX519 defaults are unit-tested; unknown cameras use a conservative fallback |
+| Sensor-aware startup defaults | Applies the selected sensor's tuned colour/contrast/Gamma defaults even when Aperture selects the first camera during startup | Stable camera model properties (`device.product.name`, `node.nick` or `device.name`) | IMX371, IMX376 and IMX519 defaults are unit-tested; unknown cameras use a conservative fallback |
 | Colour | Saturation UI | Standard `Saturation` | Zero is monochrome; supported maximum raises chroma |
 | Contrast | Contrast UI | Standard `Contrast` | Preview and saved output change in the same direction |
 | Detail | Sharpness UI | Standard `Sharpness` | Ordered edge/detail metric at 0, default and maximum |
+| Gamma | Gamma UI with a 0.1–10 range and sensor-aware OnePlus startup defaults | Standard `Gamma` property when advertised by the node | The requested value is transported to preview/capture; unsupported third-party nodes leave the rest of the controls usable |
+| Camera calibration | Mobile dialog for grey-card/colour-chart tuning; saves, applies and clears a versioned profile per physical sensor | The same standard image controls plus stable node identity | A profile survives app restart and applies only to its sensor; no ephemeral PipeWire serial is persisted |
 | Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
 | HDR | Opt-in Software HDR switch; captures dark, normal and bright JPEGs and adds one merged output to the gallery | Three still requests, standard ExposureValue control, GdkPixbuf JPEG decode/encode and the bounded `advanced-snapshot-hdr` helper | Three same-sized frames are registered to the middle exposure with a confidence-gated global translation, merged in linear light, and atomically installed; clipped samples are down-weighted and temporary frames are cleaned up; local/non-rigid motion and vendor-ISP parity remain explicitly out of scope |
@@ -48,6 +50,15 @@ pinch-zoom checks. The application deliberately rejects focus-result mode on
 an older transport rather than treating an accepted request as optical
 success. Visual reticle, saved-photo, preview-latency and video acceptance remain separate UI
 tests.
+
+The calibration dialog is a repeatable control-profile tool, not a factory ISP
+calibrator. It can tune the controls that the standard node advertises—Gamma,
+Saturation, Contrast, Sharpness, Exposure and, on rear sensors, focus—and
+stores them under a stable sensor identity in GSettings. The current OnePlus
+nodes do not expose a writable white-balance matrix, colour-correction matrix,
+lens-shading table or vendor denoise controls, so the dialog does not invent
+those values or claim Android-vendor colour parity. Use a grey card or colour
+chart in even light and compare saved reference photos when choosing values.
 
 Four pure application tests cover gesture scaling, lower/upper clamping,
 invalid gesture values and the displayed value format; Aperture additionally

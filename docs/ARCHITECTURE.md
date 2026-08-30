@@ -91,6 +91,27 @@ both automatic modes together. This keeps the app independent of libcamera
 numeric IDs and makes unsupported cameras fail as an unavailable control,
 rather than silently changing a different property.
 
+## Sensor calibration profiles
+
+The Camera Calibration dialog is deliberately a userspace profile layer. It
+reads the current values from the Image Controls UI, lets the user compare a
+grey card or colour chart in even light, and stores a versioned GLib KeyFile
+inside the `camera-calibration-profiles` GSettings key. Each group name is an
+FNV-1a hash of the stable camera node name, libcamera path or device name; the
+ephemeral PipeWire object serial is never persisted. Selecting a different
+physical sensor therefore loads a different profile, while a corrupt profile
+falls back to bounded defaults.
+
+Profiles contain only controls the application can submit through the standard
+interface: automatic/manual exposure, shutter time, analogue gain, Gamma,
+Saturation, Contrast, Sharpness and normalized rear `LensPosition`. The
+optional manual-focus restore flag is off by default, so a saved profile does
+not disable continuous autofocus unexpectedly. Clearing a profile restores the
+sensor-aware built-in values. Because the current OnePlus nodes do not expose
+white-balance matrices, CCMs, lens-shading tables or vendor denoise controls,
+this tool cannot reproduce the Android ISP's factory colour pipeline; it is a
+repeatable control calibration aid rather than a proprietary ISP replacement.
+
 ## Bounded rear flash
 
 The optional **Hardware flash** switch does not write LED sysfs files from the

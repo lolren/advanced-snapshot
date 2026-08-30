@@ -29,6 +29,8 @@ postmarketOS into an unmaintainable permanent fork.
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source and lower-layer package; sensor-scene acceptance remains separate |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
+| Gamma tone control | Exposes the standard libcamera `Gamma` control for mid-tone tuning and selects the OnePlus sensor's conservative 2.0/2.1/2.2 startup default from the stable node model | Implemented on nodes advertising `Gamma`; calibration remains scene-dependent |
+| Per-sensor calibration tool | Lets the user tune the live controls against a grey card or colour chart, save a versioned profile, apply it later and optionally restore a deliberate manual focus position | Implemented in the Camera Calibration dialog; profiles are stored per stable sensor identity |
 | Sensor-aware startup defaults | Applies tuned colour/contrast defaults when the provider selects the first camera as well as when the user switches cameras | Implemented |
 | Bounded rear hardware flash | Offers an opt-in rear-LED pulse through `pmos-camera-flash`; the helper restores the previous LED values and is disabled for the front camera | Implemented in source; phone LED/capture acceptance pending |
 | Software HDR exposure fusion | Captures dark, normal and bright JPEGs, aligns bounded whole-frame handheld translation, rejects clipped samples, merges them in linear light and writes one atomically installed JPEG; temporary frames are removed on success or failure | Implemented in source; phone image-quality acceptance pending |
@@ -63,8 +65,16 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   value chip and the **Main Menu → Image Controls → Zoom** slider stay in sync.
   Tap the value chip to return directly to 1x.
 - Open **Image Controls** for exposure compensation, manual focus, colour
-  saturation, contrast and detail. **Reset** restores the sensor-aware tone
-  defaults, continuous autofocus and 1x zoom.
+  saturation, contrast, detail and Gamma. **Reset** restores the sensor-aware
+  tone defaults, continuous autofocus and 1x zoom.
+- Select **Camera calibration** from **Image Controls** after placing a grey
+  card or colour chart in even light. Adjust Gamma, Colour, Contrast, Detail,
+  Exposure and focus while viewing the live preview, capture a reference
+  photo, then press **Calibrate → Save Current Profile**. The profile is
+  keyed to the stable physical sensor, so main, secondary and front-camera
+  values do not overwrite one another. Leave **Restore manual focus** off for
+  normal continuous autofocus; enable it only when a saved lens position is
+  intentional. **Clear** removes that sensor's profile.
 - Enable **Software HDR** to capture a dark, normal and bright frame and merge
   them into one JPEG. It requires automatic exposure; the three frames are
   intentionally captured without hardware flash. Small whole-frame shifts are
@@ -83,9 +93,9 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
 Zoom is a digital crop performed by Camerabin, not optical lens zoom. Software
 HDR is exposure fusion, not the OnePlus vendor HDR pipeline: alignment is
 limited to one global translation per bracket, with no local motion model,
-local tone mapping, automatic flash metering, calibrated CCM or lens-shading
-tables. Manual analogue gain is not the same thing as a vendor ISO mode, and no
-vendor-specific ISO calibration is claimed. The hardware-flash switch is an
+local tone mapping, automatic flash metering, calibrated white balance/CCM or
+lens-shading tables. Manual analogue gain is not the same thing as a vendor ISO
+mode, and no vendor-specific ISO calibration is claimed. The hardware-flash switch is an
 explicit, bounded LED pulse and is not used during HDR capture.
 
 ## Runtime requirements
@@ -117,7 +127,7 @@ advanced-snapshot-hdr --output merged.jpg \
 
 The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r28,
 PipeWire libcamera SPA r7 and postmarketOS edge. The current app package is the
-source-built r16 development line. The lower layer passes all-sensor stream
+source-built r24 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
 manual lens-position sweep; saved-photo colour and UI acceptance remain
 device-scene checks rather than a claim of Android vendor parity.
@@ -163,14 +173,21 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`2d9639bcb58d3b5b0689928e03946242def036cd`. It adds a labelled **Controls**
-button to the camera bar while retaining the hamburger-menu action. The exact
-package pair is recorded in `docs/VALIDATION.md` and is installed on the
-connected OnePlus 6T without reboot. The main APK is
-`advanced-snapshot-0.1.0_p20260829225220-r16.apk` with SHA-256
-`677c09016eb673ee1f6bc033435073871da551aaadfe7291f09ea7b81c57d10e`; the
-language APK SHA-256 is
-`968f885fdd01ee6661bf63f0d58d969c290cf9a09865c733f841a1101a22c4af`.
+`1b7b6e681d310c79b96ee98f96e150540d5bf962`. It includes the labelled
+**Image Controls** entry, Gamma, sensor-model tone defaults and the
+per-sensor **Camera calibration** dialog. The exact package pair is recorded
+in `docs/VALIDATION.md` and is installed on the connected OnePlus 6T without
+reboot. The main APK is `advanced-snapshot-0.1.0-r24.apk` with SHA-256
+`3e50832180b548add81bde75c133b4779787603940619c7025917e9e1af3b445`; the
+language APK is `advanced-snapshot-lang-0.1.0-r24.apk` with SHA-256
+`b465ffde5a61c522e13f1a7f348f7e7a6afa4bb63de2c73d798c79291a070341`.
+
+On the reference phone, the r24 controls panel and calibration dialog were
+opened over SSH. A profile was saved for the front sensor, appeared in the
+new `camera-calibration-profiles` GSettings key, and was then cleared. The
+standard Gamma control accepted a 2.0 request and a 2.2 restore through the
+installed helper. This validates the UI, persistence and control transport;
+it does not claim a factory colour matrix or Android-vendor ISP parity.
 
 With libcamera/IPA r28 and PipeWire SPA r7, both rear modules pass the native
 focus helper regression and the all-camera Waydroid probe. Manual rear focus
@@ -239,13 +256,14 @@ intermittent `not-negotiated`, allocator or stream-drain errors during rapid
 open-close testing. The guard is generic and does not depend on OnePlus-specific
 node names.
 
-The current r16 source is commit
-`2d9639bcb58d3b5b0689928e03946242def036cd` and includes the same lifecycle
+The current r24 source is commit
+`1b7b6e681d310c79b96ee98f96e150540d5bf962` and includes the same lifecycle
 guard plus the camerabin NULL barrier, GStreamer state-tuple compatibility fix,
-rear manual-focus slider, explicit return to continuous autofocus and the
-always-visible Controls entry. The native focus path and lower-layer manual
-range are live-tested; visual preview, saved still, video and physical
-touchscreen acceptance remain separate device gates.
+rear manual-focus slider, explicit return to continuous autofocus, the
+always-visible Image Controls entry, Gamma and the per-sensor calibration
+profile tool. The native focus path and lower-layer manual range are
+live-tested; visual preview, saved still, video and physical touchscreen
+acceptance remain separate device gates.
 
 No photograph, raw frame, device identifier, account credential, proprietary
 Android library or vendor tuning blob belongs in this repository.
