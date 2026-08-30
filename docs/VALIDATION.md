@@ -1,5 +1,42 @@
 # Validation record
 
+## 0.1.0-r30 ISP white-balance calibration checkpoint
+
+- Date: 2026-08-30
+- Source commit: `275999b20efa0de20c7f639b4341af42d0959fa2`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r29 and PipeWire libcamera SPA r8
+- Source archive SHA-512:
+  `3b337df795eb59ebe5aa9bfb52a28fcc2168bcf287cf4f406a8f7bd74c69e1d3934e7021cf9d5a16e6387507381fdcc25c403ee027df1d05083661e1f3e07bfe`
+- Main APK: `advanced-snapshot-0.1.0-r30.apk`
+  (`93205595cbd6c168c5179d8f57d7b2b036d8606ccca12d3101ae46ed7ccecb51`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r30.apk`
+  (`b98c7646f84ffc78f5b1c155f5a72cf7b7cc1ede5fb358fc74d365cb9122212e`)
+
+The pinned archive completed a clean pmbootstrap AArch64 build with Rust 1.97.
+All 11 application, 10 HDR-helper and 9 Aperture tests passed. Formatting,
+resource XML, schema and C-helper syntax checks passed. The complete APK
+validator accepted both signatures and architectures, full manifests,
+resources, schemas, AppStream metadata, helper ownership and language split.
+An exact two-package upgrade simulation showed only Advanced Snapshot and its
+language package moving from r29 to r30; the installed phone-side hashes match
+the build artifacts.
+
+The r30 app launched on the phone with a 1280x720/30 live stream and exposed
+all three camera nodes. It switched among IMX519, IMX376 and IMX371 without a
+stream error. For each active node, a deliberately extreme red/blue
+`ColourGains` pair produced the expected visible colour shift in the live ISP
+output. `AwbEnable=true` then restored statistics-driven white balance. Every
+helper command returned success and all three sensors were left in automatic
+mode. The on-device Image Controls panel exposes automatic white balance plus
+bounded red/blue gains, and the Camera Calibration dialog reports the active
+sensor and current AWB state.
+
+This checkpoint proves the standard control path from application through the
+PipeWire float-array transport into the simple software ISP. It does not prove
+a factory colour-correction matrix, lens-shading correction, calibrated
+focus-distance scale, proprietary denoise or Android-vendor image parity.
+
 ## 0.1.0-r29 reliable full-resolution still checkpoint
 
 - Date: 2026-08-30

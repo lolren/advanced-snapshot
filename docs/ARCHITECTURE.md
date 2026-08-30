@@ -91,6 +91,23 @@ both automatic modes together. This keeps the app independent of libcamera
 numeric IDs and makes unsupported cameras fail as an unavailable control,
 rather than silently changing a different property.
 
+## White balance
+
+Automatic white balance remains the default. When it is disabled, Aperture
+debounces the two gain sliders and starts the control helper with the selected
+camera serial, red gain and blue gain. The helper discovers `AwbEnable` and
+`ColourGains` dynamically, disables AWB and sends the two-element float array
+in one PipeWire property update. Green is fixed at 1.0 by the standard
+libcamera contract. Re-enabling automatic mode submits `AwbEnable=true` and
+lets the software ISP resume statistics-driven updates.
+
+The subprocess is generation-owned just like exposure and focus helpers: a
+new value, camera switch or stream teardown cancels stale work. The PipeWire
+SPA patch transports the float array without hard-coding libcamera numeric
+IDs, and the simple IPA clamps both channels to its advertised 0–4 range.
+Advanced Snapshot intentionally presents 0.1–4.0 so a saved profile cannot
+black out one colour channel.
+
 ## Sensor calibration profiles
 
 The Camera Calibration dialog is deliberately a userspace profile layer. It
@@ -103,14 +120,15 @@ physical sensor therefore loads a different profile, while a corrupt profile
 falls back to bounded defaults.
 
 Profiles contain only controls the application can submit through the standard
-interface: automatic/manual exposure, shutter time, analogue gain, Gamma,
-Saturation, Contrast, Sharpness and normalized rear `LensPosition`. The
+interface: automatic/manual exposure, shutter time, analogue gain,
+automatic/manual white balance, red/blue gains, Gamma, Saturation, Contrast,
+Sharpness and normalized rear `LensPosition`. The
 optional manual-focus restore flag is off by default, so a saved profile does
 not disable continuous autofocus unexpectedly. Clearing a profile restores the
 sensor-aware built-in values. Because the current OnePlus nodes do not expose
-white-balance matrices, CCMs, lens-shading tables or vendor denoise controls,
-this tool cannot reproduce the Android ISP's factory colour pipeline; it is a
-repeatable control calibration aid rather than a proprietary ISP replacement.
+a writable CCM, lens-shading table or vendor denoise controls, this tool cannot
+reproduce the Android ISP's factory colour pipeline; it is a repeatable
+control calibration aid rather than a proprietary ISP replacement.
 
 ## Bounded rear flash
 
