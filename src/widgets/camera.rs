@@ -2182,19 +2182,19 @@ mod tests {
     fn colour_presets_keep_sensor_gamma_and_only_change_processing() {
         assert_eq!(
             colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_SENSOR_DEFAULT),
-            (1.35, 1.10, 1.0, 2.0)
+            Some((1.35, 1.10, 1.0, 2.0))
         );
         assert_eq!(
             colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_NEUTRAL),
-            (1.0, 1.0, 1.0, 2.0)
+            Some((1.0, 1.0, 1.0, 2.0))
         );
         assert_eq!(
             colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_NATURAL),
-            (1.35, 1.05, 1.05, 2.0)
+            Some((1.35, 1.05, 1.05, 2.0))
         );
         assert_eq!(
             colour_preset_values("Sony IMX371 Main", COLOUR_PRESET_VIVID),
-            (1.55, 1.15, 1.10, 2.0)
+            Some((1.55, 1.15, 1.10, 2.0))
         );
     }
 
