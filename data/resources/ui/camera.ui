@@ -631,6 +631,22 @@
                                 <property name="description" translatable="yes">Adjust the live preview and saved photo</property>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Autofocus</property>
+                                    <property name="subtitle" translatable="yes">Continuously track focus; tap the preview for one-shot focus</property>
+                                    <child>
+                                      <object class="GtkButton" id="auto_focus_button">
+                                        <property name="label" translatable="yes">Auto</property>
+                                        <property name="valign">center</property>
+                                        <property name="tooltip-text" translatable="yes">Resume continuous autofocus</property>
+                                        <style>
+                                          <class name="pill" />
+                                        </style>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Manual focus position</property>
                                     <property name="subtitle" translatable="yes">Rear lens range 0–2; moving this locks autofocus</property>
                                     <child>

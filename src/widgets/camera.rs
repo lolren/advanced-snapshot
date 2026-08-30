@@ -127,6 +127,8 @@ mod imp {
         #[template_child]
         pub focus_scale: TemplateChild<gtk::Scale>,
         #[template_child]
+        pub auto_focus_button: TemplateChild<gtk::Button>,
+        #[template_child]
         pub shutter_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub gain_scale: TemplateChild<gtk::Scale>,
@@ -394,6 +396,11 @@ mod imp {
                         obj.queue_manual_focus();
                     }
                 }
+            ));
+            self.auto_focus_button.connect_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.enable_auto_focus()
             ));
 
             let focus_gesture = gtk::GestureClick::new();
@@ -1161,6 +1168,11 @@ impl Camera {
         self.queue_image_adjustments();
     }
 
+    fn enable_auto_focus(&self) {
+        self.clear_manual_focus_state();
+        self.imp().viewfinder.set_auto_focus();
+    }
+
     fn update_flash_availability(&self) {
         let imp = self.imp();
         let rear_camera = imp
@@ -1177,7 +1189,7 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 13] = [
+        let controls: [&gtk::Widget; 14] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
@@ -1189,6 +1201,7 @@ impl Camera {
             imp.zoom_scale.upcast_ref(),
             imp.zoom_reset_button.upcast_ref(),
             imp.reset_image_controls.upcast_ref(),
+            imp.auto_focus_button.upcast_ref(),
             imp.flash_switch.upcast_ref(),
             imp.hdr_switch.upcast_ref(),
         ];
@@ -1204,6 +1217,7 @@ impl Camera {
                     matches!(camera.location(), aperture::CameraLocation::Back)
                 });
             imp.focus_scale.set_sensitive(rear_camera);
+            imp.auto_focus_button.set_sensitive(rear_camera);
         }
     }
 
@@ -1462,6 +1476,7 @@ impl Camera {
         imp.focus_scale.set_value(1.0);
         imp.suppress_manual_focus.set(suppressed);
         imp.focus_scale.set_sensitive(rear_camera);
+        imp.auto_focus_button.set_sensitive(rear_camera);
         imp.zoom_scale.set_value(1.0);
         self.queue_image_adjustments();
     }

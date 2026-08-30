@@ -1486,6 +1486,21 @@ impl Viewfinder {
             async move {
                 obj.change_state_inner(gst::State::Playing, generation)
                     .await;
+
+                // A camera node can retain the previous lens mode after a
+                // camera switch or after an application restart.  Put rear
+                // sensors back into continuous AF once the preview has had
+                // time to become active.  This is deliberately conditional:
+                // a user tap or manual-focus adjustment made during startup
+                // must not be overwritten by the default.
+                glib::timeout_future(Duration::from_millis(750)).await;
+                let imp = obj.imp();
+                if imp.stream_request_is_current(generation)
+                    && !imp.manual_focus_active.get()
+                    && imp.focus_process.borrow().is_none()
+                {
+                    obj.set_auto_focus();
+                }
             }
         ));
     }
