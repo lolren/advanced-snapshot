@@ -74,5 +74,10 @@
       <summary>Last camera ID</summary>
       <description>An ID representing the last used camera</description>
     </key>
+    <key name="camera-calibration-profiles" type="s">
+      <default>""</default>
+      <summary>Camera calibration profiles</summary>
+      <description>Per-sensor image-control profiles stored by Advanced Snapshot</description>
+    </key>
   </schema>
 </schemalist>

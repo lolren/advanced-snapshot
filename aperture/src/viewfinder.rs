@@ -1105,6 +1105,7 @@ impl Viewfinder {
         saturation: f64,
         contrast: f64,
         sharpness: f64,
+        gamma: f64,
     ) {
         if !matches!(self.state(), ViewfinderState::Ready) {
             return;
@@ -1125,6 +1126,7 @@ impl Viewfinder {
             format!("{:.4}", saturation.clamp(0.0, 2.0)),
             format!("{:.4}", contrast.clamp(0.0, 2.0)),
             format!("{:.4}", sharpness.clamp(0.0, 2.0)),
+            format!("{:.4}", gamma.clamp(0.1, 10.0)),
         ];
         let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
         let process = match launcher.spawn(&[
@@ -1135,6 +1137,7 @@ impl Viewfinder {
             OsStr::new(&arguments[2]),
             OsStr::new(&arguments[3]),
             OsStr::new(&arguments[4]),
+            OsStr::new(&arguments[5]),
         ]) {
             Ok(process) => process,
             Err(err) => {

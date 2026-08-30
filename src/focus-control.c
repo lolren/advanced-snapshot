@@ -73,6 +73,7 @@ struct app {
 	double saturation;
 	double contrast;
 	double sharpness;
+	double gamma;
 	int32_t exposure_time_us;
 	double analogue_gain;
 
@@ -85,6 +86,7 @@ struct app {
 	uint32_t saturation_id;
 	uint32_t contrast_id;
 	uint32_t sharpness_id;
+	uint32_t gamma_id;
 	uint32_t exposure_time_id;
 	uint32_t exposure_time_mode_id;
 	uint32_t analogue_gain_id;
@@ -315,6 +317,11 @@ static int apply_controls(struct app *app)
 				   (float)app->contrast);
 		add_float_property(&builder, app->sharpness_id,
 				   (float)app->sharpness);
+		/* Gamma was added after the original four adjustment arguments.  It is
+		 * optional so older or third-party camera nodes still accept the other
+		 * standard image controls. */
+		if (app->gamma_id != 0)
+			add_float_property(&builder, app->gamma_id, (float)app->gamma);
 	} else if (app->operation == OPERATION_MANUAL_EXPOSURE) {
 		/* ExposureTimeModeManual and AnalogueGainModeManual. */
 		add_int_property(&builder, app->exposure_time_mode_id, 1);
@@ -411,6 +418,8 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->contrast_id = control_id;
 	else if (spa_streq(description, "Sharpness"))
 		app->sharpness_id = control_id;
+	else if (spa_streq(description, "Gamma"))
+		app->gamma_id = control_id;
 	else if (spa_streq(description, "ExposureTime"))
 		app->exposure_time_id = control_id;
 	else if (spa_streq(description, "ExposureTimeMode"))
@@ -659,7 +668,7 @@ static void usage(const char *program)
 		"       %s lens SERIAL POSITION\n"
 		"       %s wait SERIAL\n"
 		"       %s reset SERIAL\n"
-		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS\n"
+		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS [GAMMA]\n"
 		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
 		"       %s auto SERIAL\n",
 		program, program, program, program, program, program, program);
@@ -669,6 +678,7 @@ int main(int argc, char **argv)
 {
 	struct app app = {
 		.orientation = 1,
+		.gamma = 2.2,
 		.result = 4,
 	};
 
@@ -695,12 +705,14 @@ int main(int argc, char **argv)
 	} else if (argc == 3 && spa_streq(argv[1], "reset") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_RESET;
-	} else if (argc == 7 && spa_streq(argv[1], "adjust") &&
+	} else if ((argc == 7 || argc == 8) && spa_streq(argv[1], "adjust") &&
 		   parse_uint64(argv[2], &app.target_serial) &&
 		   parse_double(argv[3], &app.exposure_value) &&
 		   parse_double(argv[4], &app.saturation) &&
 		   parse_double(argv[5], &app.contrast) &&
 		   parse_double(argv[6], &app.sharpness) &&
+		   (argc == 7 || (parse_double(argv[7], &app.gamma) &&
+				  app.gamma >= 0.1 && app.gamma <= 10.0)) &&
 		   app.exposure_value >= -1.0 && app.exposure_value <= 1.0 &&
 		   app.saturation >= 0.0 && app.saturation <= 2.0 &&
 		   app.contrast >= 0.0 && app.contrast <= 2.0 &&

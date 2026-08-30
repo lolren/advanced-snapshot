@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="CalibrationDialog" parent="AdwDialog">
+    <property name="title" translatable="yes">Camera Calibration</property>
+    <property name="content-width">420</property>
+    <property name="content-height">680</property>
+    <child>
+      <object class="GtkScrolledWindow">
+        <property name="hscrollbar-policy">never</property>
+        <property name="vexpand">True</property>
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">14</property>
+            <property name="margin-start">18</property>
+            <property name="margin-end">18</property>
+            <property name="margin-top">18</property>
+            <property name="margin-bottom">18</property>
+            <child>
+              <object class="GtkLabel" id="camera_label">
+                <property name="wrap">True</property>
+                <property name="justify">center</property>
+                <property name="halign">fill</property>
+                <style>
+                  <class name="title-2"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="identity_label">
+                <property name="wrap">True</property>
+                <property name="selectable">True</property>
+                <property name="justify">center</property>
+                <property name="halign">fill</property>
+                <style>
+                  <class name="dim-label"/>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">Use a grey card or colour chart in even light. Adjust Gamma, Colour, Contrast, Detail, Exposure and focus in Image Controls, capture a reference photo, then save the values below for this physical sensor.</property>
+                <property name="wrap">True</property>
+                <property name="halign">fill</property>
+                <property name="justify">left</property>
+                <style>
+                  <class name="body"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="AdwPreferencesGroup">
+                <property name="title" translatable="yes">Current settings</property>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Values in Image Controls</property>
+                    <property name="subtitle" translatable="yes">These are saved exactly as shown below.</property>
+                    <child>
+                      <object class="GtkLabel" id="current_label">
+                        <property name="wrap">True</property>
+                        <property name="width-chars">20</property>
+                        <property name="max-width-chars">26</property>
+                        <property name="justify">right</property>
+                        <property name="halign">end</property>
+                        <property name="valign">center</property>
+                        <style>
+                          <class name="numeric"/>
+                          <class name="caption"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Restore manual focus</property>
+                    <property name="subtitle" translatable="yes">Keep the saved lens position on startup; leave off for continuous autofocus.</property>
+                    <child>
+                      <object class="GtkSwitch" id="restore_manual_focus">
+                        <property name="valign">center</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="AdwPreferencesGroup">
+                <property name="title" translatable="yes">Saved sensor profile</property>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Saved values</property>
+                    <property name="subtitle" translatable="yes">Applied when this sensor is selected.</property>
+                    <child>
+                      <object class="GtkLabel" id="saved_label">
+                        <property name="wrap">True</property>
+                        <property name="width-chars">20</property>
+                        <property name="max-width-chars">26</property>
+                        <property name="justify">right</property>
+                        <property name="halign">end</property>
+                        <property name="valign">center</property>
+                        <style>
+                          <class name="numeric"/>
+                          <class name="caption"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">8</property>
+                <child>
+                  <object class="GtkButton" id="apply_button">
+                    <property name="label" translatable="yes">Apply Saved Profile</property>
+                    <property name="hexpand">True</property>
+                    <style>
+                      <class name="pill"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="save_button">
+                    <property name="label" translatable="yes">Save Current Profile</property>
+                    <property name="hexpand">True</property>
+                    <style>
+                      <class name="suggested-action"/>
+                      <class name="pill"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="clear_button">
+                    <property name="label" translatable="yes">Clear Saved Profile</property>
+                    <property name="hexpand">True</property>
+                    <style>
+                      <class name="destructive-action"/>
+                      <class name="pill"/>
+                    </style>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="status_label">
+                <property name="wrap">True</property>
+                <property name="justify">center</property>
+                <property name="halign">fill</property>
+                <style>
+                  <class name="dim-label"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel">
+                <property name="label" translatable="yes">This profile adjusts the controls available through libcamera. It cannot recreate Android's proprietary colour matrix, lens shading, denoise or multi-frame processing. Keep the reference photo with the profile so changes remain reproducible.</property>
+                <property name="wrap">True</property>
+                <property name="halign">fill</property>
+                <style>
+                  <class name="dim-label"/>
+                  <class name="caption"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

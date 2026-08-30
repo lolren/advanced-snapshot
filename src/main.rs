@@ -2,6 +2,7 @@
 #[rustfmt::skip]
 mod config;
 mod application;
+mod camera_profile;
 mod enums;
 mod utils;
 mod widgets;

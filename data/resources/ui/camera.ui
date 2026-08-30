@@ -647,6 +647,22 @@
                                 </child>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Camera calibration</property>
+                                    <property name="subtitle" translatable="yes">Tune this sensor and save a profile for repeatable results</property>
+                                    <child>
+                                      <object class="GtkButton" id="calibration_button">
+                                        <property name="label" translatable="yes">Calibrate</property>
+                                        <property name="valign">center</property>
+                                        <property name="tooltip-text" translatable="yes">Open the per-sensor calibration tool</property>
+                                        <style>
+                                          <class name="pill" />
+                                        </style>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Manual focus position</property>
                                     <property name="subtitle" translatable="yes">Rear lens range 0–2; moving this locks autofocus</property>
                                     <child>
@@ -814,6 +830,30 @@
                                             <property name="value">1</property>
                                             <property name="step-increment">0.1</property>
                                             <property name="page-increment">0.2</property>
+                                          </object>
+                                        </property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Gamma</property>
+                                    <property name="subtitle" translatable="yes">Tone curve for mid-tone brightness</property>
+                                    <child>
+                                      <object class="GtkScale" id="gamma_scale">
+                                        <property name="width-request">175</property>
+                                        <property name="valign">center</property>
+                                        <property name="digits">1</property>
+                                        <property name="draw-value">True</property>
+                                        <property name="value-pos">right</property>
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">0.1</property>
+                                            <property name="upper">10</property>
+                                            <property name="value">2.2</property>
+                                            <property name="step-increment">0.1</property>
+                                            <property name="page-increment">1</property>
                                           </object>
                                         </property>
                                       </object>

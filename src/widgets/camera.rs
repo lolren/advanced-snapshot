@@ -16,7 +16,7 @@ use gtk::{gdk, gio, glib, graphene};
 
 use super::CameraControls;
 use crate::enums::ControlsLayout;
-use crate::{config, utils};
+use crate::{camera_profile, config, utils};
 
 // Camerabin implements digital zoom by updating a videocrop/videoscale chain.
 // Feeding that chain every raw touch event can build a visible backlog, so
@@ -139,11 +139,15 @@ mod imp {
         #[template_child]
         pub sharpness_scale: TemplateChild<gtk::Scale>,
         #[template_child]
+        pub gamma_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
         pub zoom_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub zoom_reset_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub reset_image_controls: TemplateChild<gtk::Button>,
+        #[template_child]
+        pub calibration_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub flash_switch: TemplateChild<gtk::Switch>,
         #[template_child]
@@ -356,6 +360,7 @@ mod imp {
                 &*self.saturation_scale,
                 &*self.contrast_scale,
                 &*self.sharpness_scale,
+                &*self.gamma_scale,
             ] {
                 scale.connect_value_changed(glib::clone!(
                     #[weak]
@@ -401,6 +406,11 @@ mod imp {
                 #[weak]
                 obj,
                 move |_| obj.enable_auto_focus()
+            ));
+            self.calibration_button.connect_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.show_calibration()
             ));
 
             let focus_gesture = gtk::GestureClick::new();
@@ -804,6 +814,7 @@ impl Camera {
             imp.saturation_scale.value(),
             imp.contrast_scale.value(),
             imp.sharpness_scale.value(),
+            imp.gamma_scale.value(),
         );
     }
 
@@ -1141,7 +1152,155 @@ impl Camera {
             imp.saturation_scale.value(),
             imp.contrast_scale.value(),
             imp.sharpness_scale.value(),
+            imp.gamma_scale.value(),
         );
+    }
+
+    fn current_profile(&self) -> camera_profile::CameraProfile {
+        let imp = self.imp();
+        camera_profile::CameraProfile {
+            exposure: imp.exposure_scale.value(),
+            auto_exposure: imp.auto_exposure_switch.is_active(),
+            shutter_us: imp.shutter_scale.value(),
+            analogue_gain: imp.gain_scale.value(),
+            gamma: imp.gamma_scale.value(),
+            saturation: imp.saturation_scale.value(),
+            contrast: imp.contrast_scale.value(),
+            sharpness: imp.sharpness_scale.value(),
+            focus: imp.focus_scale.value(),
+            restore_manual_focus: false,
+        }
+    }
+
+    fn default_profile(&self, camera: &aperture::Camera) -> camera_profile::CameraProfile {
+        let (contrast, saturation) = image_control_defaults(&camera.display_name());
+        camera_profile::CameraProfile {
+            exposure: 0.0,
+            auto_exposure: true,
+            shutter_us: 8333.0,
+            analogue_gain: 1.0,
+            gamma: 2.2,
+            saturation,
+            contrast,
+            sharpness: 1.0,
+            focus: 1.0,
+            restore_manual_focus: false,
+        }
+    }
+
+    fn set_profile_values(&self, profile: camera_profile::CameraProfile) {
+        let imp = self.imp();
+        imp.exposure_scale.set_value(profile.exposure);
+        imp.auto_exposure_switch.set_active(profile.auto_exposure);
+        imp.shutter_scale.set_value(profile.shutter_us);
+        imp.gain_scale.set_value(profile.analogue_gain);
+        imp.saturation_scale.set_value(profile.saturation);
+        imp.contrast_scale.set_value(profile.contrast);
+        imp.sharpness_scale.set_value(profile.sharpness);
+        imp.gamma_scale.set_value(profile.gamma);
+        let suppressed = imp.suppress_manual_focus.replace(true);
+        imp.focus_scale.set_value(profile.focus);
+        imp.suppress_manual_focus.set(suppressed);
+        self.update_manual_exposure_controls();
+    }
+
+    fn apply_profile(&self, profile: camera_profile::CameraProfile) {
+        self.set_profile_values(profile);
+        self.queue_image_adjustments();
+
+        let rear_camera = self
+            .imp()
+            .viewfinder
+            .camera()
+            .is_some_and(|camera| matches!(camera.location(), aperture::CameraLocation::Back));
+        if rear_camera {
+            if profile.restore_manual_focus {
+                self.imp().viewfinder.set_manual_focus(profile.focus);
+            } else {
+                self.imp().viewfinder.set_auto_focus();
+            }
+        }
+    }
+
+    pub fn show_calibration(&self) {
+        let Some(window) = self.root().and_downcast::<crate::Window>() else {
+            return;
+        };
+        if window.visible_dialog().is_some() {
+            return;
+        }
+        let Some(camera) = self.imp().viewfinder.camera() else {
+            window.send_toast(&gettext("No camera is active"));
+            return;
+        };
+
+        let settings = self.imp().settings().clone();
+        let current = self.current_profile();
+        let saved = camera_profile::load(&settings, &camera);
+        let dialog = crate::CalibrationDialog::new(
+            &camera.display_name(),
+            &camera_profile::identity(&camera),
+            current,
+            saved,
+        );
+
+        dialog.connect_save(glib::clone!(
+            #[weak]
+            self,
+            #[strong]
+            camera,
+            #[strong]
+            settings,
+            move |dialog| {
+                let mut profile = self.current_profile();
+                profile.restore_manual_focus = dialog.restore_manual_focus();
+                match camera_profile::save(&settings, &camera, profile) {
+                    Ok(()) => {
+                        self.apply_profile(profile);
+                        dialog.set_saved_profile(Some(profile));
+                        dialog.set_status("Saved for this sensor. The profile will be reused when it is selected.");
+                    }
+                    Err(error) => dialog.set_status(&format!("Could not save profile: {error}")),
+                }
+            }
+        ));
+        dialog.connect_apply(glib::clone!(
+            #[weak]
+            self,
+            #[strong]
+            camera,
+            #[strong]
+            settings,
+            move |dialog| {
+                if let Some(profile) = camera_profile::load(&settings, &camera) {
+                    self.apply_profile(profile);
+                    dialog.set_status("Saved profile applied to the active sensor.");
+                } else {
+                    dialog.set_status("No saved profile is available for this sensor.");
+                }
+            }
+        ));
+        dialog.connect_clear(glib::clone!(
+            #[weak]
+            self,
+            #[strong]
+            camera,
+            #[strong]
+            settings,
+            move |dialog| {
+                match camera_profile::clear(&settings, &camera) {
+                    Ok(()) => {
+                        self.apply_profile(self.default_profile(&camera));
+                        dialog.set_saved_profile(None);
+                        dialog.set_status(
+                            "Profile cleared; built-in defaults and continuous autofocus restored.",
+                        );
+                    }
+                    Err(error) => dialog.set_status(&format!("Could not clear profile: {error}")),
+                }
+            }
+        ));
+        dialog.present(Some(&window));
     }
 
     fn reset_image_controls(&self) {
@@ -1149,8 +1308,7 @@ impl Camera {
         self.clear_manual_focus_state();
         imp.suppress_manual_focus.set(true);
         if let Some(camera) = imp.viewfinder.camera() {
-            self.set_image_control_defaults(&camera);
-            imp.viewfinder.set_auto_focus();
+            self.apply_profile(self.default_profile(&camera));
             imp.suppress_manual_focus.set(false);
             return;
         }
@@ -1162,6 +1320,7 @@ impl Camera {
         imp.saturation_scale.set_value(1.35);
         imp.contrast_scale.set_value(1.10);
         imp.sharpness_scale.set_value(1.0);
+        imp.gamma_scale.set_value(2.2);
         imp.focus_scale.set_value(1.0);
         imp.zoom_scale.set_value(1.0);
         imp.suppress_manual_focus.set(false);
@@ -1189,7 +1348,7 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 14] = [
+        let controls: [&gtk::Widget; 16] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
@@ -1198,10 +1357,12 @@ impl Camera {
             imp.saturation_scale.upcast_ref(),
             imp.contrast_scale.upcast_ref(),
             imp.sharpness_scale.upcast_ref(),
+            imp.gamma_scale.upcast_ref(),
             imp.zoom_scale.upcast_ref(),
             imp.zoom_reset_button.upcast_ref(),
             imp.reset_image_controls.upcast_ref(),
             imp.auto_focus_button.upcast_ref(),
+            imp.calibration_button.upcast_ref(),
             imp.flash_switch.upcast_ref(),
             imp.hdr_switch.upcast_ref(),
         ];
@@ -1462,23 +1623,26 @@ impl Camera {
 
     fn set_image_control_defaults(&self, camera: &aperture::Camera) {
         let imp = self.imp();
-        let (contrast, saturation) = image_control_defaults(&camera.display_name());
         let rear_camera = matches!(camera.location(), aperture::CameraLocation::Back);
+        let saved_profile = camera_profile::load(imp.settings(), camera);
+        let profile = saved_profile.unwrap_or_else(|| self.default_profile(camera));
 
-        imp.exposure_scale.set_value(0.0);
-        imp.auto_exposure_switch.set_active(true);
-        imp.shutter_scale.set_value(8333.0);
-        imp.gain_scale.set_value(1.0);
-        imp.saturation_scale.set_value(saturation);
-        imp.contrast_scale.set_value(contrast);
-        imp.sharpness_scale.set_value(1.0);
-        let suppressed = imp.suppress_manual_focus.replace(true);
-        imp.focus_scale.set_value(1.0);
-        imp.suppress_manual_focus.set(suppressed);
+        self.set_profile_values(profile);
         imp.focus_scale.set_sensitive(rear_camera);
         imp.auto_focus_button.set_sensitive(rear_camera);
         imp.zoom_scale.set_value(1.0);
         self.queue_image_adjustments();
+
+        // Do not disturb the normal startup path for an unprofiled camera.
+        // A saved profile explicitly opts into restoring either a manual lens
+        // position or continuous autofocus.
+        if saved_profile.is_some() && rear_camera {
+            if profile.restore_manual_focus {
+                imp.viewfinder.set_manual_focus(profile.focus);
+            } else {
+                imp.viewfinder.set_auto_focus();
+            }
+        }
     }
 
     pub fn is_recording_active(&self) -> bool {

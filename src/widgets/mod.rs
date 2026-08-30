@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 use gtk::prelude::*;
 
+mod calibration_dialog;
 mod camera;
 mod camera_controls;
 mod camera_row;
@@ -19,6 +20,7 @@ mod sliding_view;
 mod video_player;
 mod window;
 
+pub use calibration_dialog::CalibrationDialog;
 pub use camera::Camera;
 pub use camera_controls::CameraControls;
 pub use camera_row::CameraRow;
