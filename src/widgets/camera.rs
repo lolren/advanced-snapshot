@@ -1245,18 +1245,18 @@ impl Camera {
         );
 
         dialog.connect_save(glib::clone!(
-            #[weak]
+            #[weak(rename_to = camera_widget)]
             self,
             #[strong]
             camera,
             #[strong]
             settings,
             move |dialog| {
-                let mut profile = self.current_profile();
+                let mut profile = camera_widget.current_profile();
                 profile.restore_manual_focus = dialog.restore_manual_focus();
                 match camera_profile::save(&settings, &camera, profile) {
                     Ok(()) => {
-                        self.apply_profile(profile);
+                        camera_widget.apply_profile(profile);
                         dialog.set_saved_profile(Some(profile));
                         dialog.set_status("Saved for this sensor. The profile will be reused when it is selected.");
                     }
@@ -1265,7 +1265,7 @@ impl Camera {
             }
         ));
         dialog.connect_apply(glib::clone!(
-            #[weak]
+            #[weak(rename_to = camera_widget)]
             self,
             #[strong]
             camera,
@@ -1273,7 +1273,7 @@ impl Camera {
             settings,
             move |dialog| {
                 if let Some(profile) = camera_profile::load(&settings, &camera) {
-                    self.apply_profile(profile);
+                    camera_widget.apply_profile(profile);
                     dialog.set_status("Saved profile applied to the active sensor.");
                 } else {
                     dialog.set_status("No saved profile is available for this sensor.");
@@ -1281,7 +1281,7 @@ impl Camera {
             }
         ));
         dialog.connect_clear(glib::clone!(
-            #[weak]
+            #[weak(rename_to = camera_widget)]
             self,
             #[strong]
             camera,
@@ -1290,7 +1290,7 @@ impl Camera {
             move |dialog| {
                 match camera_profile::clear(&settings, &camera) {
                     Ok(()) => {
-                        self.apply_profile(self.default_profile(&camera));
+                        camera_widget.apply_profile(camera_widget.default_profile(&camera));
                         dialog.set_saved_profile(None);
                         dialog.set_status(
                             "Profile cleared; built-in defaults and continuous autofocus restored.",

@@ -2,7 +2,7 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::CompositeTemplate;
-use gtk::{glib, prelude::*};
+use gtk::glib;
 
 use crate::camera_profile::CameraProfile;
 

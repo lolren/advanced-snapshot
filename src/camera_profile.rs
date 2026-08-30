@@ -5,7 +5,7 @@
 //! standard libcamera/PipeWire interface.  It is not a replacement for the
 //! vendor's factory colour matrix or lens-shading tables.
 
-use gtk::{gio, glib};
+use gtk::{gio, gio::prelude::SettingsExt, glib};
 
 const PROFILES_KEY: &str = "camera-calibration-profiles";
 const PROFILE_GROUP_PREFIX: &str = "camera-";
