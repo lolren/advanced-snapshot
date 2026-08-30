@@ -20,37 +20,31 @@ mod imp {
         #[template_child]
         pub identity_label: TemplateChild<gtk::Label>,
         #[template_child]
-        pub current_label: TemplateChild<gtk::Label>,
+        pub current_row: TemplateChild<adw::ActionRow>,
         #[template_child]
-        pub saved_label: TemplateChild<gtk::Label>,
+        pub saved_row: TemplateChild<adw::ActionRow>,
         #[template_child]
         pub restore_manual_focus: TemplateChild<gtk::Switch>,
         #[template_child]
         pub custom_colour_matrix: TemplateChild<gtk::Switch>,
         #[template_child]
-        pub ccm_red_row: TemplateChild<gtk::Box>,
+        pub ccm_00: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_green_row: TemplateChild<gtk::Box>,
+        pub ccm_01: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_blue_row: TemplateChild<gtk::Box>,
+        pub ccm_02: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_00: TemplateChild<gtk::SpinButton>,
+        pub ccm_10: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_01: TemplateChild<gtk::SpinButton>,
+        pub ccm_11: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_02: TemplateChild<gtk::SpinButton>,
+        pub ccm_12: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_10: TemplateChild<gtk::SpinButton>,
+        pub ccm_20: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_11: TemplateChild<gtk::SpinButton>,
+        pub ccm_21: TemplateChild<adw::SpinRow>,
         #[template_child]
-        pub ccm_12: TemplateChild<gtk::SpinButton>,
-        #[template_child]
-        pub ccm_20: TemplateChild<gtk::SpinButton>,
-        #[template_child]
-        pub ccm_21: TemplateChild<gtk::SpinButton>,
-        #[template_child]
-        pub ccm_22: TemplateChild<gtk::SpinButton>,
+        pub ccm_22: TemplateChild<adw::SpinRow>,
         #[template_child]
         pub identity_matrix_button: TemplateChild<gtk::Button>,
         #[template_child]
@@ -103,7 +97,7 @@ impl CalibrationDialog {
 
         imp.camera_label.set_label(camera_name);
         imp.identity_label.set_label(camera_identity);
-        imp.current_label.set_label(&format_profile(current));
+        imp.current_row.set_subtitle(&format_profile(current));
         imp.restore_manual_focus
             .set_active(current.restore_manual_focus);
         dialog.set_colour_calibration(current.custom_colour_matrix, current.colour_matrix);
@@ -176,7 +170,7 @@ impl CalibrationDialog {
                 move |_| callback(&dialog)
             ));
         for input in self.matrix_inputs() {
-            input.connect_value_changed(glib::clone!(
+            input.connect_value_notify(glib::clone!(
                 #[weak(rename_to = dialog)]
                 self,
                 #[strong]
@@ -196,20 +190,22 @@ impl CalibrationDialog {
     }
 
     pub fn set_current_profile(&self, profile: CameraProfile) {
-        self.imp().current_label.set_label(&format_profile(profile));
+        self.imp()
+            .current_row
+            .set_subtitle(&format_profile(profile));
     }
 
     pub fn set_saved_profile(&self, profile: Option<CameraProfile>) {
         let imp = self.imp();
         match profile {
             Some(profile) => {
-                imp.saved_label.set_label(&format_profile(profile));
+                imp.saved_row.set_subtitle(&format_profile(profile));
                 imp.apply_button.set_sensitive(true);
                 imp.clear_button.set_sensitive(true);
             }
             None => {
-                imp.saved_label
-                    .set_label("No saved profile for this sensor");
+                imp.saved_row
+                    .set_subtitle("No saved profile for this sensor");
                 imp.apply_button.set_sensitive(false);
                 imp.clear_button.set_sensitive(false);
             }
@@ -220,7 +216,7 @@ impl CalibrationDialog {
         self.imp().status_label.set_label(status);
     }
 
-    fn matrix_inputs(&self) -> [&gtk::SpinButton; 9] {
+    fn matrix_inputs(&self) -> [&adw::SpinRow; 9] {
         let imp = self.imp();
         [
             &imp.ccm_00,
@@ -236,11 +232,10 @@ impl CalibrationDialog {
     }
 
     fn update_matrix_sensitivity(&self) {
-        let imp = self.imp();
-        let enabled = imp.custom_colour_matrix.is_active();
-        imp.ccm_red_row.set_sensitive(enabled);
-        imp.ccm_green_row.set_sensitive(enabled);
-        imp.ccm_blue_row.set_sensitive(enabled);
+        let enabled = self.imp().custom_colour_matrix.is_active();
+        for input in self.matrix_inputs() {
+            input.set_sensitive(enabled);
+        }
     }
 }
 
