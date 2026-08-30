@@ -68,6 +68,7 @@ mod imp {
         pub recording_source: RefCell<Option<glib::source::SourceId>>,
         pub adjustment_handler: RefCell<Option<glib::source::SourceId>>,
         pub manual_exposure_handler: RefCell<Option<glib::source::SourceId>>,
+        pub white_balance_handler: RefCell<Option<glib::source::SourceId>>,
         pub manual_focus_handler: RefCell<Option<glib::source::SourceId>>,
         pub suppress_manual_focus: Cell<bool>,
         pub flash_generation: Cell<u64>,
@@ -132,6 +133,12 @@ mod imp {
         pub shutter_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub gain_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub auto_white_balance_switch: TemplateChild<gtk::Switch>,
+        #[template_child]
+        pub red_gain_scale: TemplateChild<gtk::Scale>,
+        #[template_child]
+        pub blue_gain_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub saturation_scale: TemplateChild<gtk::Scale>,
         #[template_child]
@@ -266,6 +273,7 @@ mod imp {
                     obj.update_state();
                     if matches!(viewfinder.state(), aperture::ViewfinderState::Ready) {
                         obj.queue_image_adjustments();
+                        obj.queue_white_balance();
                         viewfinder.set_zoom(obj.imp().zoom_scale.value());
                     }
                 }
@@ -393,6 +401,27 @@ mod imp {
                 ));
             }
             obj.update_manual_exposure_controls();
+            self.auto_white_balance_switch
+                .connect_active_notify(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |_| {
+                        obj.update_manual_white_balance_controls();
+                        obj.queue_white_balance();
+                    }
+                ));
+            for scale in [&*self.red_gain_scale, &*self.blue_gain_scale] {
+                scale.connect_value_changed(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |_| {
+                        if !obj.imp().auto_white_balance_switch.is_active() {
+                            obj.queue_white_balance();
+                        }
+                    }
+                ));
+            }
+            obj.update_manual_white_balance_controls();
             self.focus_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
@@ -837,6 +866,9 @@ impl Camera {
         let imp = self.imp();
 
         self.abort_hdr_capture(None);
+        self.clear_manual_exposure_state();
+        self.clear_white_balance_state();
+        self.clear_manual_focus_state();
 
         if let Some(ref camera) = camera {
             let id = id_from_pw(camera);
@@ -950,6 +982,8 @@ impl Camera {
         self.stop_hardware_flash();
         self.abort_hdr_capture(None);
         self.clear_manual_exposure_state();
+        self.clear_white_balance_state();
+        self.clear_manual_focus_state();
         self.imp().viewfinder.stop_stream();
     }
 
@@ -1006,6 +1040,44 @@ impl Camera {
     fn clear_manual_exposure_state(&self) {
         if let Some(handler) = self.imp().manual_exposure_handler.take() {
             handler.remove();
+        }
+    }
+
+    fn clear_white_balance_state(&self) {
+        if let Some(handler) = self.imp().white_balance_handler.take() {
+            handler.remove();
+        }
+    }
+
+    fn update_manual_white_balance_controls(&self) {
+        let manual = !self.imp().auto_white_balance_switch.is_active();
+        self.imp().red_gain_scale.set_sensitive(manual);
+        self.imp().blue_gain_scale.set_sensitive(manual);
+    }
+
+    fn queue_white_balance(&self) {
+        self.clear_white_balance_state();
+        let handler = glib::timeout_add_local_once(
+            Duration::from_millis(120),
+            glib::clone!(
+                #[weak(rename_to = camera)]
+                self,
+                move || {
+                    camera.imp().white_balance_handler.take();
+                    camera.apply_white_balance();
+                }
+            ),
+        );
+        self.imp().white_balance_handler.replace(Some(handler));
+    }
+
+    fn apply_white_balance(&self) {
+        let imp = self.imp();
+        if imp.auto_white_balance_switch.is_active() {
+            imp.viewfinder.set_auto_white_balance();
+        } else {
+            imp.viewfinder
+                .set_manual_white_balance(imp.red_gain_scale.value(), imp.blue_gain_scale.value());
         }
     }
 
@@ -1163,6 +1235,9 @@ impl Camera {
             auto_exposure: imp.auto_exposure_switch.is_active(),
             shutter_us: imp.shutter_scale.value(),
             analogue_gain: imp.gain_scale.value(),
+            auto_white_balance: imp.auto_white_balance_switch.is_active(),
+            red_gain: imp.red_gain_scale.value(),
+            blue_gain: imp.blue_gain_scale.value(),
             gamma: imp.gamma_scale.value(),
             saturation: imp.saturation_scale.value(),
             contrast: imp.contrast_scale.value(),
@@ -1180,6 +1255,9 @@ impl Camera {
             auto_exposure: true,
             shutter_us: 8333.0,
             analogue_gain: 1.0,
+            auto_white_balance: true,
+            red_gain: 1.0,
+            blue_gain: 1.0,
             gamma: image_gamma_default(&camera_name),
             saturation,
             contrast,
@@ -1195,6 +1273,10 @@ impl Camera {
         imp.auto_exposure_switch.set_active(profile.auto_exposure);
         imp.shutter_scale.set_value(profile.shutter_us);
         imp.gain_scale.set_value(profile.analogue_gain);
+        imp.auto_white_balance_switch
+            .set_active(profile.auto_white_balance);
+        imp.red_gain_scale.set_value(profile.red_gain);
+        imp.blue_gain_scale.set_value(profile.blue_gain);
         imp.saturation_scale.set_value(profile.saturation);
         imp.contrast_scale.set_value(profile.contrast);
         imp.sharpness_scale.set_value(profile.sharpness);
@@ -1203,11 +1285,13 @@ impl Camera {
         imp.focus_scale.set_value(profile.focus);
         imp.suppress_manual_focus.set(suppressed);
         self.update_manual_exposure_controls();
+        self.update_manual_white_balance_controls();
     }
 
     fn apply_profile(&self, profile: camera_profile::CameraProfile) {
         self.set_profile_values(profile);
         self.queue_image_adjustments();
+        self.queue_white_balance();
 
         let rear_camera = self
             .imp()
@@ -1318,6 +1402,9 @@ impl Camera {
         imp.auto_exposure_switch.set_active(true);
         imp.shutter_scale.set_value(8333.0);
         imp.gain_scale.set_value(1.0);
+        imp.auto_white_balance_switch.set_active(true);
+        imp.red_gain_scale.set_value(1.0);
+        imp.blue_gain_scale.set_value(1.0);
         imp.saturation_scale.set_value(1.35);
         imp.contrast_scale.set_value(1.10);
         imp.sharpness_scale.set_value(1.0);
@@ -1326,6 +1413,7 @@ impl Camera {
         imp.zoom_scale.set_value(1.0);
         imp.suppress_manual_focus.set(false);
         self.queue_image_adjustments();
+        self.queue_white_balance();
     }
 
     fn enable_auto_focus(&self) {
@@ -1349,11 +1437,14 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 16] = [
+        let controls: [&gtk::Widget; 19] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
             imp.gain_scale.upcast_ref(),
+            imp.auto_white_balance_switch.upcast_ref(),
+            imp.red_gain_scale.upcast_ref(),
+            imp.blue_gain_scale.upcast_ref(),
             imp.focus_scale.upcast_ref(),
             imp.saturation_scale.upcast_ref(),
             imp.contrast_scale.upcast_ref(),
@@ -1372,6 +1463,7 @@ impl Camera {
         }
         if sensitive {
             self.update_manual_exposure_controls();
+            self.update_manual_white_balance_controls();
             self.update_flash_availability();
             self.update_hdr_availability();
             let rear_camera =
@@ -1633,6 +1725,7 @@ impl Camera {
         imp.auto_focus_button.set_sensitive(rear_camera);
         imp.zoom_scale.set_value(1.0);
         self.queue_image_adjustments();
+        self.queue_white_balance();
 
         // Do not disturb the normal startup path for an unprofiled camera.
         // A saved profile explicitly opts into restoring either a manual lens

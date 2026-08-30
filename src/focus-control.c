@@ -34,6 +34,8 @@ enum operation {
 	OPERATION_ADJUST,
 	OPERATION_MANUAL_EXPOSURE,
 	OPERATION_AUTO_EXPOSURE,
+	OPERATION_MANUAL_WHITE_BALANCE,
+	OPERATION_AUTO_WHITE_BALANCE,
 };
 
 enum stage {
@@ -76,6 +78,8 @@ struct app {
 	double gamma;
 	int32_t exposure_time_us;
 	double analogue_gain;
+	double red_gain;
+	double blue_gain;
 
 	uint32_t af_mode_id;
 	uint32_t af_trigger_id;
@@ -91,6 +95,8 @@ struct app {
 	uint32_t exposure_time_mode_id;
 	uint32_t analogue_gain_id;
 	uint32_t analogue_gain_mode_id;
+	uint32_t awb_enable_id;
+	uint32_t colour_gains_id;
 	int crop_x;
 	int crop_y;
 	unsigned int crop_width;
@@ -290,6 +296,24 @@ static void add_float_property(struct spa_pod_builder *builder, uint32_t id,
 	spa_pod_builder_float(builder, value);
 }
 
+static void add_bool_property(struct spa_pod_builder *builder, uint32_t id,
+			      bool value)
+{
+	spa_pod_builder_prop(builder, id, 0);
+	spa_pod_builder_bool(builder, value);
+}
+
+static void add_float_pair_property(struct spa_pod_builder *builder, uint32_t id,
+				    float first, float second)
+{
+	struct spa_pod_frame pair_frame;
+	spa_pod_builder_prop(builder, id, 0);
+	spa_pod_builder_push_struct(builder, &pair_frame);
+	spa_pod_builder_float(builder, first);
+	spa_pod_builder_float(builder, second);
+	spa_pod_builder_pop(builder, &pair_frame);
+}
+
 static int apply_controls(struct app *app)
 {
 	uint8_t buffer[512];
@@ -334,6 +358,12 @@ static int apply_controls(struct app *app)
 		/* ExposureTimeModeAuto and AnalogueGainModeAuto. */
 		add_int_property(&builder, app->exposure_time_mode_id, 0);
 		add_int_property(&builder, app->analogue_gain_mode_id, 0);
+	} else if (app->operation == OPERATION_MANUAL_WHITE_BALANCE) {
+		add_bool_property(&builder, app->awb_enable_id, false);
+		add_float_pair_property(&builder, app->colour_gains_id,
+					(float)app->red_gain, (float)app->blue_gain);
+	} else if (app->operation == OPERATION_AUTO_WHITE_BALANCE) {
+		add_bool_property(&builder, app->awb_enable_id, true);
 	} else {
 		double x = app->focus_x;
 		double y = app->focus_y;
@@ -428,6 +458,10 @@ static void node_param(void *data, int seq, uint32_t id, uint32_t index,
 		app->analogue_gain_id = control_id;
 	else if (spa_streq(description, "AnalogueGainMode"))
 		app->analogue_gain_mode_id = control_id;
+	else if (spa_streq(description, "AwbEnable"))
+		app->awb_enable_id = control_id;
+	else if (spa_streq(description, "ColourGains"))
+		app->colour_gains_id = control_id;
 }
 
 static void request_controls(struct app *app)
@@ -594,6 +628,18 @@ static void core_done(void *data, uint32_t id, int seq)
 			       "camera does not support manual exposure controls");
 			return;
 		}
+		if (app->operation == OPERATION_MANUAL_WHITE_BALANCE &&
+		    (app->awb_enable_id == 0 || app->colour_gains_id == 0)) {
+			finish(app, 3,
+			       "camera does not support manual white balance controls");
+			return;
+		}
+		if (app->operation == OPERATION_AUTO_WHITE_BALANCE &&
+		    app->awb_enable_id == 0) {
+			finish(app, 3,
+			       "camera does not support automatic white balance control");
+			return;
+		}
 
 		if (app->operation == OPERATION_FOCUS)
 			app->baseline_af_trigger_generation =
@@ -670,8 +716,11 @@ static void usage(const char *program)
 		"       %s reset SERIAL\n"
 		"       %s adjust SERIAL EXPOSURE SATURATION CONTRAST SHARPNESS [GAMMA]\n"
 		"       %s manual SERIAL EXPOSURE_US ANALOGUE_GAIN\n"
-		"       %s auto SERIAL\n",
-		program, program, program, program, program, program, program);
+		"       %s auto SERIAL\n"
+		"       %s white-balance SERIAL RED_GAIN BLUE_GAIN\n"
+		"       %s auto-white-balance SERIAL\n",
+		program, program, program, program, program, program, program,
+		program, program);
 }
 
 int main(int argc, char **argv)
@@ -728,6 +777,16 @@ int main(int argc, char **argv)
 	} else if (argc == 3 && spa_streq(argv[1], "auto") &&
 		   parse_uint64(argv[2], &app.target_serial)) {
 		app.operation = OPERATION_AUTO_EXPOSURE;
+	} else if (argc == 5 && spa_streq(argv[1], "white-balance") &&
+		   parse_uint64(argv[2], &app.target_serial) &&
+		   parse_double(argv[3], &app.red_gain) &&
+		   parse_double(argv[4], &app.blue_gain) &&
+		   app.red_gain >= 0.0 && app.red_gain <= 4.0 &&
+		   app.blue_gain >= 0.0 && app.blue_gain <= 4.0) {
+		app.operation = OPERATION_MANUAL_WHITE_BALANCE;
+	} else if (argc == 3 && spa_streq(argv[1], "auto-white-balance") &&
+		   parse_uint64(argv[2], &app.target_serial)) {
+		app.operation = OPERATION_AUTO_WHITE_BALANCE;
 	} else {
 		usage(argv[0]);
 		return 2;

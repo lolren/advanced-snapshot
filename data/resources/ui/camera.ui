@@ -769,6 +769,66 @@
                                 </child>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Automatic white balance</property>
+                                    <property name="subtitle" translatable="yes">Continuously neutralise the scene using the camera ISP</property>
+                                    <child>
+                                      <object class="GtkSwitch" id="auto_white_balance_switch">
+                                        <property name="active">True</property>
+                                        <property name="valign">center</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Red balance gain</property>
+                                    <property name="subtitle" translatable="yes">Manual red gain relative to green; disable automatic white balance first</property>
+                                    <child>
+                                      <object class="GtkScale" id="red_gain_scale">
+                                        <property name="width-request">175</property>
+                                        <property name="valign">center</property>
+                                        <property name="digits">2</property>
+                                        <property name="draw-value">True</property>
+                                        <property name="value-pos">right</property>
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">0.1</property>
+                                            <property name="upper">4</property>
+                                            <property name="value">1</property>
+                                            <property name="step-increment">0.05</property>
+                                            <property name="page-increment">0.25</property>
+                                          </object>
+                                        </property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Blue balance gain</property>
+                                    <property name="subtitle" translatable="yes">Manual blue gain relative to green; disable automatic white balance first</property>
+                                    <child>
+                                      <object class="GtkScale" id="blue_gain_scale">
+                                        <property name="width-request">175</property>
+                                        <property name="valign">center</property>
+                                        <property name="digits">2</property>
+                                        <property name="draw-value">True</property>
+                                        <property name="value-pos">right</property>
+                                        <property name="adjustment">
+                                          <object class="GtkAdjustment">
+                                            <property name="lower">0.1</property>
+                                            <property name="upper">4</property>
+                                            <property name="value">1</property>
+                                            <property name="step-increment">0.05</property>
+                                            <property name="page-increment">0.25</property>
+                                          </object>
+                                        </property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Colour</property>
                                     <child>
                                       <object class="GtkScale" id="saturation_scale">

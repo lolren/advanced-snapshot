@@ -20,6 +20,10 @@ pub struct CameraProfile {
     pub auto_exposure: bool,
     pub shutter_us: f64,
     pub analogue_gain: f64,
+    pub auto_white_balance: bool,
+    /// Manual red and blue gains relative to a fixed green gain of 1.0.
+    pub red_gain: f64,
+    pub blue_gain: f64,
     pub gamma: f64,
     pub saturation: f64,
     pub contrast: f64,
@@ -37,6 +41,9 @@ impl CameraProfile {
             auto_exposure: self.auto_exposure,
             shutter_us: clamp_finite(self.shutter_us, 8333.0, 1.0, 2_000_000.0),
             analogue_gain: clamp_finite(self.analogue_gain, 1.0, 0.1, 256.0),
+            auto_white_balance: self.auto_white_balance,
+            red_gain: clamp_finite(self.red_gain, 1.0, 0.1, 4.0),
+            blue_gain: clamp_finite(self.blue_gain, 1.0, 0.1, 4.0),
             gamma: clamp_finite(self.gamma, 2.2, 0.1, 10.0),
             saturation: clamp_finite(self.saturation, 1.0, 0.0, 2.0),
             contrast: clamp_finite(self.contrast, 1.0, 0.0, 2.0),
@@ -131,6 +138,9 @@ pub fn load(settings: &gio::Settings, camera: &aperture::Camera) -> Option<Camer
             auto_exposure: read_bool(&file, &group, "auto-exposure", true),
             shutter_us: read_double(&file, &group, "shutter-us", 8333.0, 1.0, 2_000_000.0),
             analogue_gain: read_double(&file, &group, "analogue-gain", 1.0, 0.1, 256.0),
+            auto_white_balance: read_bool(&file, &group, "auto-white-balance", true),
+            red_gain: read_double(&file, &group, "red-gain", 1.0, 0.1, 4.0),
+            blue_gain: read_double(&file, &group, "blue-gain", 1.0, 0.1, 4.0),
             gamma: read_double(&file, &group, "gamma", 2.2, 0.1, 10.0),
             saturation: read_double(&file, &group, "saturation", 1.0, 0.0, 2.0),
             contrast: read_double(&file, &group, "contrast", 1.0, 0.0, 2.0),
@@ -151,12 +161,15 @@ pub fn save(
     let file = profile_data(settings);
     let group = profile_group(camera);
 
-    file.set_integer(&group, "version", 1);
+    file.set_integer(&group, "version", 2);
     file.set_string(&group, "camera-identity", &camera_identity(camera));
     file.set_double(&group, "exposure", profile.exposure);
     file.set_boolean(&group, "auto-exposure", profile.auto_exposure);
     file.set_double(&group, "shutter-us", profile.shutter_us);
     file.set_double(&group, "analogue-gain", profile.analogue_gain);
+    file.set_boolean(&group, "auto-white-balance", profile.auto_white_balance);
+    file.set_double(&group, "red-gain", profile.red_gain);
+    file.set_double(&group, "blue-gain", profile.blue_gain);
     file.set_double(&group, "gamma", profile.gamma);
     file.set_double(&group, "saturation", profile.saturation);
     file.set_double(&group, "contrast", profile.contrast);
@@ -176,4 +189,41 @@ pub fn clear(settings: &gio::Settings, camera: &aperture::Camera) -> Result<(), 
         settings.set_string(PROFILES_KEY, file.to_data().as_str())?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CameraProfile;
+
+    fn profile(red_gain: f64, blue_gain: f64) -> CameraProfile {
+        CameraProfile {
+            exposure: 0.0,
+            auto_exposure: true,
+            shutter_us: 8333.0,
+            analogue_gain: 1.0,
+            auto_white_balance: false,
+            red_gain,
+            blue_gain,
+            gamma: 2.2,
+            saturation: 1.0,
+            contrast: 1.0,
+            sharpness: 1.0,
+            focus: 1.0,
+            restore_manual_focus: false,
+        }
+    }
+
+    #[test]
+    fn manual_white_balance_gains_are_kept_in_the_safe_ui_range() {
+        let clamped = profile(0.0, 8.0).clamped();
+        assert_eq!(clamped.red_gain, 0.1);
+        assert_eq!(clamped.blue_gain, 4.0);
+    }
+
+    #[test]
+    fn invalid_white_balance_gains_fall_back_to_neutral() {
+        let clamped = profile(f64::NAN, f64::INFINITY).clamped();
+        assert_eq!(clamped.red_gain, 1.0);
+        assert_eq!(clamped.blue_gain, 1.0);
+    }
 }

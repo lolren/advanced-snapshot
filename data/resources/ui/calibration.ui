@@ -40,7 +40,7 @@
             </child>
             <child>
               <object class="GtkLabel">
-                <property name="label" translatable="yes">Use a grey card or colour chart in even light. Adjust Gamma, Colour, Contrast, Detail, Exposure and focus in Image Controls, capture a reference photo, then save the values below for this physical sensor.</property>
+                <property name="label" translatable="yes">Use a neutral grey card or colour chart in even light. Start with automatic white balance, then turn it off and adjust red and blue gains until the grey target is neutral. Tune Gamma, Colour, Contrast, Detail, Exposure and focus, capture a reference photo, then save the values below for this physical sensor.</property>
                 <property name="wrap">True</property>
                 <property name="halign">fill</property>
                 <property name="justify">left</property>
@@ -157,7 +157,7 @@
             </child>
             <child>
               <object class="GtkLabel">
-                <property name="label" translatable="yes">This profile adjusts the controls available through libcamera. It cannot recreate Android's proprietary colour matrix, lens shading, denoise or multi-frame processing. Keep the reference photo with the profile so changes remain reproducible.</property>
+                <property name="label" translatable="yes">This profile stores real libcamera controls, including automatic/manual white balance, exposure, tone, colour and optional lens position. It cannot recreate Android's proprietary factory colour matrix, lens shading, denoise or multi-frame processing. Keep the reference photo with the profile so changes remain reproducible.</property>
                 <property name="wrap">True</property>
                 <property name="halign">fill</property>
                 <style>

@@ -138,9 +138,14 @@ fn format_profile(profile: CameraProfile) -> String {
     } else {
         "continuous auto".to_string()
     };
+    let white_balance = if profile.auto_white_balance {
+        "WB auto".to_string()
+    } else {
+        format!("WB R {:.2} / B {:.2}", profile.red_gain, profile.blue_gain)
+    };
 
     format!(
-        "EV {:+.1} · {exposure_mode} · gamma {:.1} · colour {:.2} · contrast {:.2} · detail {:.2} · focus {focus_mode}",
+        "EV {:+.1} · {exposure_mode} · {white_balance} · gamma {:.1} · colour {:.2} · contrast {:.2} · detail {:.2} · focus {focus_mode}",
         profile.exposure, profile.gamma, profile.saturation, profile.contrast, profile.sharpness,
     )
 }

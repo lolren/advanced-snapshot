@@ -120,6 +120,8 @@ mod imp {
         pub adjustment_process: RefCell<Option<gio::Subprocess>>,
         pub exposure_generation: Cell<u64>,
         pub exposure_process: RefCell<Option<gio::Subprocess>>,
+        pub white_balance_generation: Cell<u64>,
+        pub white_balance_process: RefCell<Option<gio::Subprocess>>,
 
         pub picture: gtk::Picture,
         pub offload: gtk::GraphicsOffload,
@@ -212,6 +214,14 @@ mod imp {
             }
         }
 
+        pub(super) fn clear_white_balance_state(&self) {
+            self.white_balance_generation
+                .set(self.white_balance_generation.get().wrapping_add(1));
+            if let Some(process) = self.white_balance_process.take() {
+                process.force_exit();
+            }
+        }
+
         fn is_recording(&self) -> bool {
             self.is_recording_video.borrow().is_some()
         }
@@ -270,6 +280,7 @@ mod imp {
             self.clear_focus_state();
             self.clear_image_adjustment_state();
             self.clear_exposure_state();
+            self.clear_white_balance_state();
 
             // We reset to READY if we landed on the ERROR state on the previous
             // camera.
@@ -560,6 +571,8 @@ mod imp {
         fn dispose(&self) {
             self.clear_focus_state();
             self.clear_image_adjustment_state();
+            self.clear_exposure_state();
+            self.clear_white_balance_state();
             self.picture_generation
                 .set(self.picture_generation.get().wrapping_add(1));
             if let Some(pipeline) = self.active_still_pipeline.take()
@@ -613,6 +626,8 @@ mod imp {
         fn unrealize(&self) {
             log::debug!("Viewfinder unrealized: stopping stream");
             self.clear_image_adjustment_state();
+            self.clear_exposure_state();
+            self.clear_white_balance_state();
             self.obj().stop_stream();
 
             self.parent_unrealize();
@@ -1286,6 +1301,107 @@ impl Viewfinder {
         ));
     }
 
+    /// Sets fixed red and blue gains while keeping the green gain at 1.0.
+    /// This is the standard libcamera manual white-balance contract, not a
+    /// display-only tint: the values are applied by the software ISP to both
+    /// preview and captured frames.
+    pub fn set_manual_white_balance(&self, red_gain: f64, blue_gain: f64) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Manual white balance unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_white_balance_state();
+        let generation = imp.white_balance_generation.get();
+        let arguments = [
+            serial.to_string(),
+            format!("{:.4}", red_gain.clamp(0.0, 4.0)),
+            format!("{:.4}", blue_gain.clamp(0.0, 4.0)),
+        ];
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("white-balance"),
+            OsStr::new(&arguments[0]),
+            OsStr::new(&arguments[1]),
+            OsStr::new(&arguments[2]),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start manual-white-balance helper: {err}");
+                return;
+            }
+        };
+        imp.white_balance_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.white_balance_generation.get() != generation {
+                    return;
+                }
+                imp.white_balance_process.take();
+                if let Err(err) = result {
+                    log::debug!("Manual white balance was not applied: {err}");
+                }
+            }
+        ));
+    }
+
+    /// Restores the software ISP's automatic white-balance loop.
+    pub fn set_auto_white_balance(&self) {
+        if !matches!(self.state(), ViewfinderState::Ready) {
+            return;
+        }
+
+        let Some(serial) = self.camera().and_then(|camera| camera.target_object()) else {
+            log::debug!("Automatic white balance unavailable: camera has no PipeWire serial");
+            return;
+        };
+
+        let imp = self.imp();
+        imp.clear_white_balance_state();
+        let generation = imp.white_balance_generation.get();
+        let serial_arg = serial.to_string();
+        let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+        let process = match launcher.spawn(&[
+            OsStr::new(FOCUS_HELPER),
+            OsStr::new("auto-white-balance"),
+            OsStr::new(&serial_arg),
+        ]) {
+            Ok(process) => process,
+            Err(err) => {
+                log::warn!("Could not start automatic-white-balance helper: {err}");
+                return;
+            }
+        };
+        imp.white_balance_process.replace(Some(process.clone()));
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = viewfinder)]
+            self,
+            async move {
+                let result = process.wait_check_future().await;
+                let imp = viewfinder.imp();
+                if imp.white_balance_generation.get() != generation {
+                    return;
+                }
+                imp.white_balance_process.take();
+                if let Err(err) = result {
+                    log::debug!("Automatic white balance was not restored: {err}");
+                }
+            }
+        ));
+    }
+
     /// Sets Camerabin's capture-wide digital zoom factor.
     pub fn set_zoom(&self, zoom: f64) {
         let camerabin = self.imp().camerabin();
@@ -1915,6 +2031,7 @@ impl Viewfinder {
         let generation = imp.request_stream_stop();
         imp.clear_image_adjustment_state();
         imp.clear_exposure_state();
+        imp.clear_white_balance_state();
         if let Err(err) = imp.camerabin().set_state(gst::State::Null) {
             log::error!("Could not pause camerabin: {err}");
             imp.set_state(ViewfinderState::Error);
