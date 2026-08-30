@@ -1173,13 +1173,14 @@ impl Camera {
     }
 
     fn default_profile(&self, camera: &aperture::Camera) -> camera_profile::CameraProfile {
-        let (contrast, saturation) = image_control_defaults(&camera.display_name());
+        let camera_name = camera_model_name(camera);
+        let (contrast, saturation) = image_control_defaults(&camera_name);
         camera_profile::CameraProfile {
             exposure: 0.0,
             auto_exposure: true,
             shutter_us: 8333.0,
             analogue_gain: 1.0,
-            gamma: 2.2,
+            gamma: image_gamma_default(&camera_name),
             saturation,
             contrast,
             sharpness: 1.0,
@@ -1783,6 +1784,25 @@ fn format_zoom_label(zoom: f64) -> String {
     format!("{zoom:.1}×")
 }
 
+fn camera_model_name(camera: &aperture::Camera) -> String {
+    let mut name = camera.display_name().to_string();
+    for key in ["device.product.name", "node.nick", "device.name"] {
+        if let Some(value) = camera
+            .properties()
+            .get(key)
+            .and_then(|value| value.get::<String>().ok())
+            && !value.is_empty()
+            && !name
+                .to_ascii_lowercase()
+                .contains(&value.to_ascii_lowercase())
+        {
+            name.push(' ');
+            name.push_str(&value);
+        }
+    }
+    name
+}
+
 fn image_control_defaults(camera_name: &str) -> (f64, f64) {
     let model = camera_name.to_ascii_lowercase();
     if model.contains("imx371") || model.contains("imx376") || model.contains("imx519") {
@@ -1793,6 +1813,19 @@ fn image_control_defaults(camera_name: &str) -> (f64, f64) {
     } else {
         // A modest generic fallback for other colour sensors.
         (1.10, 1.25)
+    }
+}
+
+fn image_gamma_default(camera_name: &str) -> f64 {
+    let model = camera_name.to_ascii_lowercase();
+    if model.contains("imx371") {
+        2.0
+    } else if model.contains("imx376") {
+        2.1
+    } else {
+        // The IMX519 and generic colour sensors use the neutral standard
+        // default unless a calibration profile overrides it.
+        2.2
     }
 }
 
@@ -1845,7 +1878,10 @@ fn hdr_exposure_values(base: f64) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_zoom_label, hdr_exposure_values, image_control_defaults, pinch_zoom_value};
+    use super::{
+        format_zoom_label, hdr_exposure_values, image_control_defaults, image_gamma_default,
+        pinch_zoom_value,
+    };
 
     #[test]
     fn sensor_defaults_are_selected_for_all_phone_cameras() {
@@ -1857,6 +1893,14 @@ mod tests {
     #[test]
     fn unknown_camera_uses_conservative_defaults() {
         assert_eq!(image_control_defaults("USB Webcam"), (1.10, 1.25));
+    }
+
+    #[test]
+    fn sensor_gamma_defaults_follow_the_phone_tuning() {
+        assert_eq!(image_gamma_default("Built-in Front Camera imx371"), 2.0);
+        assert_eq!(image_gamma_default("Built-in Back Camera imx376"), 2.1);
+        assert_eq!(image_gamma_default("Built-in Back Camera imx519"), 2.2);
+        assert_eq!(image_gamma_default("USB Webcam"), 2.2);
     }
 
     #[test]
