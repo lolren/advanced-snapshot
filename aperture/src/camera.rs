@@ -169,6 +169,13 @@ impl Camera {
                 gst::Caps::builder(*encoding)
                     .field("width", size.width)
                     .field("height", size.height)
+                    // PipeWire/libcamera advertises a range here. Camerabin
+                    // can otherwise propagate that unfixed range while it
+                    // switches from preview to still capture, and
+                    // pipewiresrc rejects the renegotiation as
+                    // `not-negotiated`. Select the same bounded rate used by
+                    // the live preview before intersecting with source caps.
+                    .field("framerate", gst::Fraction::new(crate::MAXIMUM_RATE, 1))
                     .build()
             })
             .collect::<gst::Caps>();
@@ -179,5 +186,38 @@ impl Camera {
             log::debug!("Using image capture caps: {selected:#?}");
             Some(selected)
         }
+    }
+
+    pub(crate) fn best_raw_image_caps(&self) -> Option<gst::Caps> {
+        let image_caps = self.best_image_caps()?;
+        let raw_caps = gst::Caps::builder("video/x-raw").build();
+        let raw_image_caps =
+            image_caps.intersect_with_mode(&raw_caps, gst::CapsIntersectMode::First);
+        if raw_image_caps.is_empty() {
+            return None;
+        }
+
+        // A standalone still pipeline must negotiate one concrete source
+        // format before its first buffer. Prefer the same well-tested packed
+        // and planar formats as the live viewfinder, then keep only the first
+        // structure and fix any remaining scalar fields.
+        let preferred_caps = crate::PREFERRED_FORMATS
+            .iter()
+            .map(|format| {
+                gst::Caps::builder("video/x-raw")
+                    .field("format", *format)
+                    .build()
+            })
+            .collect::<gst::Caps>();
+        let mut selected =
+            preferred_caps.intersect_with_mode(&raw_image_caps, gst::CapsIntersectMode::First);
+        if selected.is_empty() {
+            selected = raw_image_caps;
+        }
+        selected.truncate();
+        selected.fixate();
+
+        log::debug!("Using standalone still caps: {selected:#?}");
+        Some(selected)
     }
 }

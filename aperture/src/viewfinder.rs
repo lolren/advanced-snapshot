@@ -21,6 +21,8 @@ use crate::code_detector::QrCodeDetector;
 const DEFAULT_BITRATE: u32 = 2048;
 const PROVIDER_TIMEOUT: u64 = 2;
 const CAMERA_STATE_TIMEOUT: u64 = 10;
+const STILL_CAPTURE_TIMEOUT: u64 = 15;
+const STILL_WARMUP: Duration = Duration::from_millis(1_000);
 const FOCUS_HELPER: &str = match option_env!("ADVANCED_SNAPSHOT_FOCUS_HELPER") {
     Some(path) => path,
     None => "advanced-snapshot-focus-control",
@@ -95,6 +97,8 @@ mod imp {
 
         pub is_stopping_recording: Cell<bool>,
         pub is_taking_picture: Cell<bool>,
+        pub picture_generation: Cell<u64>,
+        pub active_still_pipeline: RefCell<Option<gst::Pipeline>>,
         pub is_front_camera: Cell<bool>,
 
         // State changes are asynchronous in GStreamer.  Keep a generation for
@@ -158,6 +162,16 @@ mod imp {
 
         pub(super) fn camera_reconfigure_is_current(&self, generation: u64) -> bool {
             self.camera_reconfigure_generation.get() == generation
+        }
+
+        pub(super) fn next_picture_generation(&self) -> u64 {
+            let generation = self.picture_generation.get().wrapping_add(1);
+            self.picture_generation.set(generation);
+            generation
+        }
+
+        pub(super) fn picture_capture_is_current(&self, generation: u64) -> bool {
+            self.is_taking_picture.get() && self.picture_generation.get() == generation
         }
 
         pub(crate) fn set_state(&self, state: ViewfinderState) {
@@ -546,6 +560,13 @@ mod imp {
         fn dispose(&self) {
             self.clear_focus_state();
             self.clear_image_adjustment_state();
+            self.picture_generation
+                .set(self.picture_generation.get().wrapping_add(1));
+            if let Some(pipeline) = self.active_still_pipeline.take()
+                && let Err(err) = pipeline.set_state(gst::State::Null)
+            {
+                log::error!("Could not stop standalone still pipeline: {err}");
+            }
             if self.is_recording_video.borrow().is_some()
                 && let Err(err) = self.obj().stop_recording()
             {
@@ -1319,6 +1340,241 @@ impl Viewfinder {
     ///
     /// The [`picture-done`](#picture-done) signal will be emitted when this
     /// operation ends.
+    fn create_standalone_still_pipeline(
+        &self,
+        camera: &crate::Camera,
+        location: &Path,
+    ) -> Result<(gst::Pipeline, gst::Element), glib::BoolError> {
+        let source = camera.create_element()?;
+        let caps = camera
+            .best_raw_image_caps()
+            .ok_or_else(|| glib::bool_error!("Camera has no raw still mode"))?;
+
+        let capsfilter = gst::ElementFactory::make("capsfilter")
+            .property("caps", &caps)
+            .build()?;
+        let warmup_gate = gst::ElementFactory::make("identity")
+            .property("drop-probability", 1.0f32)
+            .build()?;
+        let queue = gst::ElementFactory::make("queue")
+            .property("max-size-buffers", 2u32)
+            .build()?;
+        let videoconvert = gst::ElementFactory::make("videoconvert").build()?;
+        let jpegenc = gst::ElementFactory::make("jpegenc")
+            .property("quality", 95i32)
+            .property("snapshot", true)
+            .build()?;
+        jpegenc.set_property_from_str("idct-method", "float");
+        let jpegmux = gst::ElementFactory::make("jifmux").build()?;
+        let filesink = gst::ElementFactory::make("filesink")
+            .property("location", location.display().to_string())
+            .property("sync", false)
+            .build()?;
+
+        if let Some(tagsetter) = jpegmux.dynamic_cast_ref::<gst::TagSetter>() {
+            tagsetter.add_tag::<gst::tags::ApplicationName>(
+                crate::APP_ID.get().unwrap(),
+                gst::TagMergeMode::Replace,
+            );
+        }
+
+        let pipeline = gst::Pipeline::new();
+        pipeline.add_many([
+            &source,
+            &capsfilter,
+            &warmup_gate,
+            &queue,
+            &videoconvert,
+            &jpegenc,
+            &jpegmux,
+            &filesink,
+        ])?;
+        gst::Element::link_many([
+            &source,
+            &capsfilter,
+            &warmup_gate,
+            &queue,
+            &videoconvert,
+            &jpegenc,
+            &jpegmux,
+            &filesink,
+        ])?;
+
+        Ok((pipeline, warmup_gate))
+    }
+
+    async fn run_standalone_still_pipeline(
+        pipeline: gst::Pipeline,
+        warmup_gate: gst::Element,
+    ) -> Result<(), String> {
+        let bus = pipeline
+            .bus()
+            .ok_or_else(|| "Standalone still pipeline has no bus".to_string())?;
+        pipeline
+            .set_state(gst::State::Playing)
+            .map_err(|err| format!("Could not start standalone still pipeline: {err}"))?;
+
+        // Opening a fresh libcamera stream resets its 3A statistics. Drop
+        // buffers while auto-exposure and the retained lens position settle,
+        // then let exactly one frame through; jpegenc's snapshot mode sends
+        // EOS after encoding it.
+        glib::timeout_future(STILL_WARMUP).await;
+        warmup_gate.set_property("drop-probability", 0.0f32);
+
+        let (sender, receiver) = futures_channel::oneshot::channel();
+        std::thread::spawn(move || {
+            let message = bus.timed_pop_filtered(
+                Some(gst::ClockTime::from_seconds(STILL_CAPTURE_TIMEOUT)),
+                &[gst::MessageType::Eos, gst::MessageType::Error],
+            );
+            let mut result = match message {
+                Some(message) => match message.view() {
+                    gst::MessageView::Eos(..) => Ok(()),
+                    gst::MessageView::Error(err) => Err(format!(
+                        "Standalone still pipeline error from {:?}: {} ({:?})",
+                        err.src().map(|source| source.path_string()),
+                        err.error(),
+                        err.debug()
+                    )),
+                    _ => unreachable!(),
+                },
+                None => Err(format!(
+                    "Standalone still capture timed out after {STILL_CAPTURE_TIMEOUT}s"
+                )),
+            };
+
+            if let Err(err) = pipeline.set_state(gst::State::Null) {
+                result = Err(format!(
+                    "{result:?}; could not stop standalone still pipeline: {err}"
+                ));
+            } else {
+                let timeout = gst::ClockTime::from_seconds(CAMERA_STATE_TIMEOUT);
+                let _ = pipeline.state(Some(timeout));
+            }
+            let _ = sender.send(result);
+        });
+
+        receiver
+            .await
+            .unwrap_or_else(|_| Err("Standalone still worker stopped unexpectedly".to_string()))
+    }
+
+    fn start_standalone_still_capture(&self, location: PathBuf, generation: u64) {
+        let imp = self.imp();
+        let stop_generation = imp.request_stream_stop();
+        if let Err(err) = imp.camerabin().set_state(gst::State::Null) {
+            log::error!("Could not stop preview for still capture: {err}");
+            imp.stream_stop_pending.set(false);
+            imp.is_taking_picture.set(false);
+            imp.set_state(ViewfinderState::Error);
+            self.emit_picture_done(None);
+            return;
+        }
+
+        glib::spawn_future_local(glib::clone!(
+            #[weak(rename_to = obj)]
+            self,
+            async move {
+                if !obj.wait_for_camerabin_state(gst::State::Null).await {
+                    log::error!("Preview did not stop before standalone still capture");
+                    let imp = obj.imp();
+                    if imp.stream_generation.get() == stop_generation {
+                        imp.stream_stop_pending.set(false);
+                    }
+                    if imp.picture_capture_is_current(generation) {
+                        imp.is_taking_picture.set(false);
+                        imp.set_state(ViewfinderState::Error);
+                        obj.emit_picture_done(None);
+                    }
+                    return;
+                }
+
+                let imp = obj.imp();
+                if imp.stream_generation.get() == stop_generation {
+                    imp.stream_stop_pending.set(false);
+                }
+                if !imp.picture_capture_is_current(generation) {
+                    return;
+                }
+
+                let camera = obj.camera();
+                let Some(camera) = camera else {
+                    log::error!("Active camera disappeared before still capture");
+                    imp.is_taking_picture.set(false);
+                    obj.emit_picture_done(None);
+                    return;
+                };
+
+                let (pipeline, warmup_gate) =
+                    match obj.create_standalone_still_pipeline(&camera, &location) {
+                        Ok(elements) => elements,
+                        Err(err) => {
+                            log::error!("Could not build standalone still pipeline: {err}");
+                            imp.is_taking_picture.set(false);
+                            if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
+                                obj.start_stream();
+                            }
+                            obj.emit_picture_done(None);
+                            return;
+                        }
+                    };
+
+                imp.active_still_pipeline.replace(Some(pipeline.clone()));
+                let capture_result =
+                    Self::run_standalone_still_pipeline(pipeline, warmup_gate).await;
+                imp.active_still_pipeline.take();
+
+                if !imp.picture_capture_is_current(generation) {
+                    return;
+                }
+
+                let capture_succeeded = match capture_result {
+                    Ok(()) => match std::fs::metadata(&location) {
+                        Ok(metadata) if metadata.is_file() && metadata.len() > 0 => true,
+                        Ok(metadata) => {
+                            log::error!(
+                                "Standalone still output is invalid: file={} size={}",
+                                metadata.is_file(),
+                                metadata.len()
+                            );
+                            false
+                        }
+                        Err(err) => {
+                            log::error!("Standalone still output is unavailable: {err}");
+                            false
+                        }
+                    },
+                    Err(err) => {
+                        log::error!("{err}");
+                        false
+                    }
+                };
+
+                if obj.is_realized() && matches!(obj.state(), ViewfinderState::Ready) {
+                    obj.start_stream();
+                    // start_stream schedules its state transition on the main
+                    // context; yield once before waiting from a worker thread.
+                    glib::timeout_future(Duration::from_millis(50)).await;
+                    if !obj.wait_for_camerabin_state(gst::State::Playing).await {
+                        log::error!("Preview did not recover after standalone still capture");
+                        imp.set_state(ViewfinderState::Error);
+                    }
+                }
+
+                if !imp.picture_capture_is_current(generation) {
+                    return;
+                }
+                imp.is_taking_picture.set(false);
+                if capture_succeeded {
+                    let file = gio::File::for_path(location);
+                    obj.emit_picture_done(Some(&file));
+                } else {
+                    obj.emit_picture_done(None);
+                }
+            }
+        ));
+    }
+
     pub fn take_picture<P: AsRef<Path>>(&self, location: P) -> Result<(), crate::CaptureError> {
         let imp = self.imp();
 
@@ -1337,11 +1593,23 @@ impl Viewfinder {
         // Set after we cannot fail anymore.
         imp.is_taking_picture.set(true);
 
+        let generation = imp.next_picture_generation();
+        let location = location.as_ref().to_owned();
+        let has_raw_still_mode = self
+            .camera()
+            .as_ref()
+            .and_then(crate::Camera::best_raw_image_caps)
+            .is_some();
+        if has_raw_still_mode {
+            self.start_standalone_still_capture(location, generation);
+            return Ok(());
+        }
+
         self.set_tags();
 
         let camerabin = imp.camerabin();
         camerabin.set_property_from_str("mode", "mode-image");
-        camerabin.set_property("location", location.as_ref().display().to_string());
+        camerabin.set_property("location", location.display().to_string());
         camerabin.emit_by_name::<()>("start-capture", &[]);
 
         Ok(())
@@ -1775,6 +2043,13 @@ impl Viewfinder {
         let imp = self.imp();
 
         if imp.is_taking_picture.replace(false) {
+            imp.picture_generation
+                .set(imp.picture_generation.get().wrapping_add(1));
+            if let Some(pipeline) = imp.active_still_pipeline.take()
+                && let Err(err) = pipeline.set_state(gst::State::Null)
+            {
+                log::error!("Could not cancel standalone still pipeline: {err}");
+            }
             self.emit_picture_done(None);
         }
         if imp.is_recording_video.replace(None).is_some() {
