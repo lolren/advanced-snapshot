@@ -91,7 +91,7 @@ the selector to **Custom**. Save a tuned result through **Calibrate → Save
 Current Profile** when it should survive camera selection and app restarts.
 
 If the selected OnePlus 6T camera still looks green, press **Image Controls →
-Green-cast correction → Apply**. The r37 package applies the exact r35
+Green-cast correction → Apply**. The r38 package applies the exact r35
 row-sum-preserving matrix used by the native IMX371/IMX376/IMX519 profiles to
 the live preview and saved captures, and turns automatic white balance off, as
 required for a standard `ColourCorrectionMatrix` request.
@@ -125,10 +125,10 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r37 package
+## OnePlus 6T r38 package
 
 The current reproducible package is source commit
-`71e3378aacf59c87696af8acd2086418dfa0ea64`, package revision r37. Build it
+`5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd`, package revision r38. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
 to a booted phone. It contains the visible Green-cast correction action and
 uses the same stronger `[0.90, 0.10, 0.00; 0.10, 0.80, 0.10; 0.00, 0.10,
@@ -138,13 +138,13 @@ package is independent of distro Snapshot, so it can be upgraded or removed
 without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r37.apk \
-  advanced-snapshot-lang-0.1.0-r37.apk \
+scp advanced-snapshot-0.1.0-r38.apk \
+  advanced-snapshot-lang-0.1.0-r38.apk \
   packaging/keys/pmos@local-6a92d930.rsa.pub user@PHONE:/tmp/
 ssh user@PHONE 'sudo install -m 0644 /tmp/pmos@local-6a92d930.rsa.pub \
   /etc/apk/keys/ && sudo apk add \
-  /tmp/advanced-snapshot-0.1.0-r37.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r37.apk'
+  /tmp/advanced-snapshot-0.1.0-r38.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r38.apk'
 ```
 
 Verify the downloaded APKs before copying them; the release hashes are in

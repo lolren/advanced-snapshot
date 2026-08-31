@@ -1,5 +1,42 @@
 # Validation record
 
+## 0.1.0-r38 fresh still-stream autofocus checkpoint
+
+- Date: 2026-08-31
+- Source commit: `5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack target: kernel r10, libcamera/IPA r35 and PipeWire SPA r8
+- Source archive SHA-512:
+  `fc33c1ad639e67662929e104963593f9dc70974505dc47632ce7e3c40771825325cf0ebe09396c6ccf4b6b973ae540aa54c61f8c5384a9ff00f15c6b241d2a33`
+- Release-signed main APK: `advanced-snapshot-0.1.0-r38.apk`
+  (`91d2c1c65d1eecbf7dca7e9f90eb69a78e60a123f9f66b662c48d5ebd81e27d5`)
+- Release-signed language APK: `advanced-snapshot-lang-0.1.0-r38.apk`
+  (`6ad6645feb9861c8d2305b19357b30c40d7572c4f957c0aa4985c92dfb568417`)
+- Package signing key: `pmos@local-6a92d930.rsa.pub`
+  (`c1f8892b9576ce1807732a985243311d272ab422fc30958a2fb78d5bfc8d36a6`)
+- Local pmbootstrap APKs before release signing:
+  `2ffac097848b369dfc06a38c158d60200e1518f1ab498ab4f02151603f764410` and
+  `66f6a43dbbfdb65041b3275b471a68c5a0e2e52411f14c08a496e4712b9bd0c1`
+- Package tests: 15 application, 10 HDR-helper and 10 Aperture tests passed
+- Container build/test gate: formatting passed; all 35 workspace tests passed
+- Artifact validation: passed with the release APK signature,
+  AArch64 executable checks, exact manifest, language split, metadata, schema,
+  resource namespace, stale-identifier scan, mobile UI contract and zero file
+  ownership overlap with distro `snapshot-50.0-r2`
+
+The r38 focus fix makes the full-resolution still path request a fresh,
+centre-weighted one-shot autofocus scan when the user has not selected a tap
+point or manual lens lock. The previous path could wait on a terminal result
+left over from the preview stream, so a saved still could remain blurry even
+when preview autofocus had worked. Tap-focus and manual-focus selections still
+take precedence, and fixed-focus front-camera behaviour is unchanged.
+
+The source, AArch64 build and release-signature checks are complete. The r38
+APK is installed as an application-only update on the reference phone without
+a reboot; final visual saved-photo acceptance still requires a normal graphical
+user session and a physical focus target. No kernel, firmware, boot slot,
+partition or Waydroid image was changed by this revision.
+
 ## 0.1.0-r37 native green-cast preset alignment checkpoint
 
 - Date: 2026-08-31
