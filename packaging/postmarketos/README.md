@@ -37,8 +37,10 @@ confidence-gated global translation against the middle exposure before fusion;
 moving subjects, rotation, parallax and vendor-ISP parity remain explicitly
 out of scope. Automatic exposure is enabled by default; disabling it submits
 standard libcamera controls in microseconds and linear gain units. These are
-userspace features and require the matching libcamera r33 and PipeWire SPA r8
-camera stack. The helper
+userspace features and require the matching OnePlus libcamera/IPA r35 and
+PipeWire SPA r8 camera stack on the current reference phone. Older r33 stacks
+remain useful for historical source/package reproduction, but r35 is the
+documented current lower-layer baseline. The helper
 is included in the main package and is covered by the staged install check.
 The r38 UI keeps the labelled Image Controls entry in a direct toolbar above
 the preview and opens the controls as a bounded, scrollable camera-page

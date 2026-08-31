@@ -12,6 +12,260 @@ PipeWire control transport—lives in
 The separation lets either project follow its own upstream without turning
 postmarketOS into an unmaintainable permanent fork.
 
+## Current release and support status
+
+This is the current application release record as of 2026-08-31:
+
+| Item | Current value |
+| --- | --- |
+| Application version | `advanced-snapshot-0.1.0-r38` plus `advanced-snapshot-lang-0.1.0-r38` |
+| Source commit | [`5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd`](https://github.com/lolren/advanced-snapshot/commit/5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd) |
+| Release | [`r38-fresh-still-autofocus`](https://github.com/lolren/advanced-snapshot/releases/tag/r38-fresh-still-autofocus) |
+| Target | postmarketOS edge, AArch64, musl |
+| Matching phone lower layer | kernel r10, libcamera/IPA r35 and PipeWire SPA r8 |
+| Main APK SHA-256 | `91d2c1c65d1eecbf7dca7e9f90eb69a78e60a123f9f66b662c48d5ebd81e27d5` |
+| Language APK SHA-256 | `6ad6645feb9861c8d2305b19357b30c40d7572c4f957c0aa4985c92dfb568417` |
+| Release verification key | `pmos@local-6a92d930.rsa.pub` |
+| Verification-key SHA-256 | `c1f8892b9576ce1807732a985243311d272ab422fc30958a2fb78d5bfc8d36a6` |
+
+r38 is an application-only update. It changes the independently named
+Advanced Snapshot executable, resources, settings schema, language package and
+HDR helper; it does not replace distro GNOME Snapshot, libcamera, PipeWire, the
+kernel, firmware, Waydroid or any boot partition. The application-only update
+does not require a reboot. Keep the previous application pair until the new
+one has passed the phone-side checks you care about.
+
+The release is source-built, signed and artifact-validated. The source and
+container gates pass 35 workspace tests in total (15 application, 10 HDR
+helper and 10 Aperture tests), and the package validator checks the AArch64
+executables, exact file manifest, language split, metadata, schema, resources,
+mobile layout contract and zero ownership overlap with distro Snapshot. The
+r38 package is installed on the reference OnePlus 6T as an application-only
+update. Final physical saved-photo acceptance still needs a normal graphical
+user session and a repeatable focus target; build success is not presented as
+proof of Android camera quality.
+
+## Installation methods
+
+There are four supported ways to use this project. Choose one method for an
+installation; do not copy individual binaries into `/usr` or replace files
+owned by the distro `snapshot` package.
+
+### Method 1: install the signed r38 release APKs
+
+This is the recommended method for a user of the OnePlus 6T. It needs a
+booted AArch64 postmarketOS installation, `apk-tools`, `curl` or a browser,
+and root permission for the package transaction. Run the application as the
+normal graphical user, not from fastboot, EDL, an SSH root shell or a different
+desktop user. A working graphical session is needed to launch and visually
+test the camera, but not to download or verify the APKs.
+
+Download the five release assets with GitHub CLI:
+
+```sh
+mkdir -p "$HOME/Downloads/advanced-snapshot-r38"
+cd "$HOME/Downloads/advanced-snapshot-r38"
+gh release download r38-fresh-still-autofocus \
+  --repo lolren/advanced-snapshot \
+  --pattern advanced-snapshot-0.1.0-r38.apk \
+  --pattern advanced-snapshot-lang-0.1.0-r38.apk \
+  --pattern pmos@local-6a92d930.rsa.pub \
+  --pattern SHA256SUMS \
+  --pattern RELEASE-NOTES.md
+```
+
+The same files can be downloaded from the release page in a browser. Do not
+skip verification merely because the files came from GitHub: a release URL
+does not replace a checksum and signature check. With all five files in the
+same directory, verify the release and the public key:
+
+```sh
+sha256sum -c SHA256SUMS
+test "$(sha256sum pmos@local-6a92d930.rsa.pub | awk '{print $1}')" = \
+  c1f8892b9576ce1807732a985243311d272ab422fc30958a2fb78d5bfc8d36a6
+```
+
+The key is public and safe to install. The corresponding private signing key
+must never be copied to the phone, committed to Git or published. Install the
+verified public key, simulate the exact package transaction, inspect the
+output, then apply it:
+
+```sh
+sudo install -m 0644 pmos@local-6a92d930.rsa.pub /etc/apk/keys/
+
+sudo apk add --simulate --upgrade --network=no --no-interactive \
+  ./advanced-snapshot-0.1.0-r38.apk \
+  ./advanced-snapshot-lang-0.1.0-r38.apk
+
+sudo apk add --upgrade --no-interactive \
+  ./advanced-snapshot-0.1.0-r38.apk \
+  ./advanced-snapshot-lang-0.1.0-r38.apk
+```
+
+The simulation should show the two Advanced Snapshot packages being added or
+upgraded and no removal of `snapshot`, camera libraries, PipeWire, Waydroid or
+the kernel. If the package key, architecture, version or transaction is not
+what you expect, stop and keep the old installation. Verify the result with:
+
+```sh
+apk info -e advanced-snapshot
+apk info -e advanced-snapshot-lang
+apk info -a advanced-snapshot | sed -n '1,20p'
+command -v advanced-snapshot
+```
+
+Close any older camera window before launching `advanced-snapshot`. No reboot
+is required. On the OnePlus 6T, the optional rear hardware-flash control also
+needs the `oneplus6t-pmos-fixes` package and writable rear LED channels; all
+other camera controls remain usable without that optional helper.
+
+### Method 2: use the OnePlus 6T verification wrapper
+
+The companion repository contains a pinned, simulation-first installer for
+this exact r38 pair. It downloads the release over HTTPS, verifies
+`SHA256SUMS`, verifies the release key fingerprint, checks both APK
+signatures, and only changes Advanced Snapshot when `--apply` is supplied.
+The wrapper does not touch the native camera generation, Waydroid, kernel or
+firmware and does not reboot.
+
+Run it on the phone as the normal graphical login user. It is also suitable
+for a checkout copied to the phone over USB networking or SSH:
+
+```sh
+git clone --depth 1 https://github.com/lolren/oneplus6t-pmos-fixes.git
+cd oneplus6t-pmos-fixes
+
+# Simulation only; downloads and verifies the exact r38 assets.
+./scripts/install-advanced-snapshot
+
+# Apply only after reviewing the simulation output.
+./scripts/install-advanced-snapshot --apply
+```
+
+If the companion runtime package is already installed, the packaged command
+is equivalent:
+
+```sh
+pmos-install-advanced-snapshot
+pmos-install-advanced-snapshot --apply
+```
+
+The command retains its verified download directory for inspection. Set
+`PMOS_SNAPSHOT_WORK_DIR` or pass `--work-dir` when the evidence and APKs must
+remain in a specific location. The helper's default is simulation-only. The
+separate `install-camera-generation` wrapper in the companion repository is
+for a complete native r35/r36 camera generation, not for this app-only update;
+use it only with the lower-layer procedure documented there.
+
+### Method 3: build the postmarketOS APK from the pinned source
+
+This method is for maintainers or users who want a locally reproducible
+package. Building does not require root; installing the resulting APK does.
+Use a current `pmbootstrap`, a pmaports checkout that can build postmarketOS
+edge AArch64 packages, Rust/Cargo support provided by the recipe, and enough
+disk space for a clean cross-build. The source recipe is pinned to the full
+r38 commit above; do not replace it with a moving branch archive.
+
+```sh
+git clone https://github.com/lolren/advanced-snapshot.git
+git -C advanced-snapshot checkout \
+  5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd
+
+git clone https://gitlab.com/postmarketOS/pmaports.git
+mkdir -p pmaports/temp/advanced-snapshot
+cp advanced-snapshot/packaging/postmarketos/APKBUILD \
+  advanced-snapshot/packaging/postmarketos/cargo-auditable.patch \
+  pmaports/temp/advanced-snapshot/
+
+pmbootstrap -p "$PWD/pmaports" build --arch aarch64 advanced-snapshot
+```
+
+The resulting `advanced-snapshot-*.apk` and
+`advanced-snapshot-lang-*.apk` are normally under the pmbootstrap package
+cache. Locate them without assuming a particular pmbootstrap home directory:
+
+```sh
+find "$HOME/.local/var/pmbootstrap/packages" \
+  -type f \( -name 'advanced-snapshot-*.apk' -o \
+             -name 'advanced-snapshot-lang-*.apk' \) -print
+```
+
+Before installing a local build, run the repository validator. It verifies
+the APK signature, AArch64 ELF headers, exact payload, independent D-Bus and
+GSettings identifiers, mobile GtkBuilder layout, language split and optional
+ownership overlap with distro Snapshot:
+
+```sh
+APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
+APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
+  ./advanced-snapshot/packaging/postmarketos/validate-apk.sh \
+  /path/to/advanced-snapshot-0.1.0-r38.apk \
+  /path/to/snapshot-50.0-r3.apk \
+  /path/to/advanced-snapshot-lang-0.1.0-r38.apk
+```
+
+The second APK argument is optional when a matching distro Snapshot package
+is not available locally. A local pmbootstrap build is normally signed by the
+buildroot development key, not by the public release key. Trust only the
+matching public key from that buildroot, or rebuild/re-sign through your own
+reviewed package repository. Do not use an unverified local APK merely because
+`apk add --allow-untrusted` can install it.
+
+Install a validated local pair with the same simulation-first rule as a
+release pair. If the package is signed by a key not already trusted by the
+phone, install that verified public key first or use `--allow-untrusted` only
+after independently checking its signature and checksum:
+
+```sh
+sudo apk add --simulate --upgrade --network=no --no-interactive \
+  /path/to/advanced-snapshot-0.1.0-r38.apk \
+  /path/to/advanced-snapshot-lang-0.1.0-r38.apk
+sudo apk add --upgrade --no-interactive \
+  /path/to/advanced-snapshot-0.1.0-r38.apk \
+  /path/to/advanced-snapshot-lang-0.1.0-r38.apk
+```
+
+### Method 4: build the application for development
+
+For UI, Rust or GStreamer development, use the native Meson build. This
+creates a staged tree and never overwrites the distro camera application:
+
+```sh
+meson setup build --prefix=/usr
+meson compile -C build
+meson test -C build --print-errorlogs
+DESTDIR="$PWD/stage" meson install -C build
+find stage -type f -o -type l
+```
+
+The stage should contain `/usr/bin/advanced-snapshot`, the focus and HDR
+helpers, the independently named D-Bus service, schema, metainfo, resource
+bundle and icons. It must not contain or overwrite `org.gnome.Snapshot` paths.
+For a complete list of dependencies and the phone-specific capture rationale,
+see [docs/INSTALL.md](docs/INSTALL.md).
+
+### Rollback and removal
+
+Keep the previous APK pair and the verified release/build key until physical
+testing is complete. Advanced Snapshot is deliberately separate from GNOME
+Snapshot, so a failed app update can be undone without touching the lower
+camera stack:
+
+```sh
+# Verify the retained older pair first, then install it explicitly.
+sudo apk add --upgrade /path/to/advanced-snapshot-OLDER.apk \
+  /path/to/advanced-snapshot-lang-OLDER.apk
+
+# Or remove only this project and return to distro Snapshot.
+sudo apk del advanced-snapshot advanced-snapshot-lang
+```
+
+Removing the app does not restore or remove libcamera, PipeWire, the kernel or
+Waydroid packages. Do not remove shared lower-layer packages as an app
+rollback. Keep a package key in `/etc/apk/keys` while any installed or
+archived package relies on it; remove it only after those packages and release
+artifacts are no longer needed.
+
 ## Current features
 
 | Feature | What it brings | Status |
@@ -158,11 +412,11 @@ advanced-snapshot-hdr --output merged.jpg \
   --input dark.jpg --input normal.jpg --input bright.jpg
 ```
 
-The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r33,
+The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r35,
 PipeWire libcamera SPA r8 and postmarketOS edge. The current app package is the
 source-built r38 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
-manual lens-position sweep. The r33 simple-IPA profiles add a bounded,
+manual lens-position sweep. The r35 simple-IPA profiles add a bounded,
 row-sum-preserving green-cast correction to all three sensors and expose a
 reproducible equal-channel test-pattern check. This reduces the measured green
 excess in controlled IMX519 and IMX376 rear captures while keeping neutral
@@ -214,7 +468,152 @@ branch before it replaces the known-good base. Never force a rejected camera
 patch or activate an untested dependency update on the phone. See
 [docs/UPSTREAM.md](docs/UPSTREAM.md).
 
-## Current OnePlus 6T acceptance
+## What has been achieved
+
+The project now has a complete, independently installable application layer
+for the open OnePlus 6T postmarketOS camera stack. The important distinction is
+between an implemented control, a host/package test and a physical photo test:
+the first two are complete for the r38 release, while the last one still
+requires a normal graphical session and controlled targets on the phone.
+
+### Application and capture path
+
+- A separate `advanced-snapshot` binary, D-Bus name, icon, AppStream metadata,
+  GSettings schema and language package can coexist with distro GNOME
+  Snapshot. No distro-owned Snapshot file is overwritten.
+- **Image Controls** is a labelled toolbar entry directly on the camera page.
+  The drawer is bounded and scrollable while the live preview remains visible,
+  so exposure, focus, colour and zoom changes do not require navigating to
+  Preferences.
+- The phone path chooses a practical 1280x720-class live preview and a
+  separate 2048x1536 full-resolution 4:3 still stream when the camera advertises
+  those modes. It stops and restores the preview around the still stream rather
+  than asking the legacy Camerabin source to renegotiate incompatible modes.
+- Repeated still capture is serialized, bounded and failure-aware. Missing,
+  empty, directory and non-local outputs are rejected before gallery insertion;
+  preview recovery and temporary-pipeline teardown are handled on success,
+  timeout, cancellation and error.
+- Rear tap focus maps through preview crop, letterboxing and orientation into a
+  real sensor AF region. The reticle is amber while pending, green only after
+  focus metadata confirms success and red on a reported failure.
+- Rear manual focus exposes the standard `LensPosition` control as a
+  normalized 0–2 slider. A tap replaces the manual lock with one-shot AF and
+  **Reset** returns to continuous AF. The fixed-focus front camera does not
+  pretend to support a lens actuator.
+- Most importantly for r38, a still capture with neither a tap point nor a
+  manual lock requests a fresh centre-weighted one-shot autofocus scan on the
+  new full-resolution still stream. It no longer trusts a terminal AF result
+  left over from the old preview stream.
+- Pinch zoom, the visible 1x–4x value and the Image Controls slider share one
+  coalesced, latest-value-wins control path. The zoom chip is in the toolbar,
+  not over the photo/video/QR selector.
+- Photo, video and QR modes, gallery handling, countdown choices and
+  composition guidelines remain available from the upstream application.
+
+### Image controls and processing
+
+- Exposure compensation, manual shutter time, analogue gain, saturation,
+  contrast, detail and Gamma use standard libcamera controls where advertised.
+  Automatic exposure and white balance remain the safe defaults.
+- Sensor default, Neutral, Natural, Vivid and Custom profiles provide visible
+  starting points without silently changing focus, exposure, white balance or a
+  measured matrix.
+- The calibration dialog stores versioned profiles per stable physical sensor.
+  Profiles can contain automatic/manual white balance, bounded red/blue gains,
+  tone/detail values, a 3x3 colour-correction matrix and an optional deliberate
+  manual focus position.
+- The visible **Green-cast correction** action uses the repeatable,
+  row-sum-preserving starting matrix
+  `[0.90, 0.10, 0.00; 0.10, 0.80, 0.10; 0.00, 0.10, 0.90]` and switches to
+  manual white balance because that is required for the standard matrix
+  control. **Reset** restores the automatic path.
+- Software HDR captures dark, normal and bright JPEGs, performs bounded
+  whole-frame translation alignment and merges in linear light into one
+  atomically installed JPEG. Hardware flash is intentionally not used during
+  HDR.
+- The optional rear-flash switch calls the separate bounded helper only for a
+  rear still and restores LED state on completion or interruption.
+
+### Validation and packaging
+
+- The pinned source archive, AArch64 package build, release signature, checksum
+  file and release public key are recorded in `docs/VALIDATION.md` and the
+  r38 release page.
+- The release validator checks ELF architecture, exact manifest, package
+  metadata, independent runtime identifiers, desktop/D-Bus/AppStream files,
+  schema compilation, mobile calibration layout, language ownership and no
+  overlap with distro Snapshot.
+- The clean source/container test gates pass 35 tests: 15 application, 10 HDR
+  helper and 10 Aperture tests. The package can be upgraded or removed without
+  changing the native camera generation.
+- The companion OnePlus repository contains the signed-release installer,
+  simulation-first package policy, native camera-generation manager and
+  rollback documentation. This repository remains the application layer; the
+  matching kernel, libcamera/IPA, PipeWire SPA, Waydroid and power work is not
+  copied into it.
+
+## Work remaining and acceptance gates
+
+The following items are deliberately not marked complete by r38:
+
+1. **Physical r38 saved-photo acceptance.** Log in to the normal postmarketOS
+   graphical session, place repeatable near and far targets in good light, and
+   test no-tap autofocus, rear tap focus, manual focus, camera switching and
+   saved JPEG sharpness on both rear modules. The source fix and package gates
+   pass; the saved-photo result must still be observed on the phone.
+2. **Full image-quality calibration.** The green-cast preset is an open,
+   scene-level starting matrix. Factory CCMs, lens-shading tables, proprietary
+   denoise, vendor HDR, vendor tone mapping and Android computational
+   photography are not available in this repository. Measure a grey card and
+   colour chart under a known illuminant before claiming parity.
+3. **Physical video/HDR/flash checks.** Confirm playable native video, live
+   preview latency, HDR ghosting/merge quality, LED pulse/restoration and all
+   control changes on all supported sensors. A source implementation or unit
+   test is not a substitute for these phone tests.
+4. **Android/Waydroid parity.** The companion repository has an open Camera3
+   provider and Google-free Vanilla image, but Android camera applications,
+   frame rate, vendor image processing, Maps/location and long open/close
+   soaks remain separate acceptance work. Rear auxiliary hardware video is
+   intentionally disabled after a reproducible Venus teardown fault.
+5. **Portability and upstreaming.** Generic Linux cameras safely use inherited
+   Snapshot paths, but phone-specific controls need capability detection. The
+   next upstreaming work is to split generic lifecycle/UI fixes from the
+   OnePlus-specific policy and keep the recipe pinned while each dependency is
+   rebased and retested.
+
+Do not interpret “work remaining” as an instruction to flash a boot image. The
+r38 application update is intentionally userspace-only. Any lower-layer or
+kernel change belongs in the companion repository and must retain an exact
+rollback package before it is considered for a phone.
+
+## Current OnePlus 6T acceptance record
+
+The matching phone baseline is kernel r10, libcamera/IPA r35 and PipeWire SPA
+r8. Earlier lower-layer tests accepted all three sensor streams, correlated
+rear focus results, fixed-focus front fallback, normalized rear manual focus,
+automatic/manual white balance and matrix transport. Repeated full-resolution
+native stills and preview recovery passed on the lower stack, but the current
+r38 application-level no-tap fresh-still AF correction still needs the visual
+saved-photo check described above.
+
+The exact r38 release artifacts are:
+
+```text
+advanced-snapshot-0.1.0-r38.apk       91d2c1c65d1eecbf7dca7e9f90eb69a78e60a123f9f66b662c48d5ebd81e27d5
+advanced-snapshot-lang-0.1.0-r38.apk  6ad6645feb9861c8d2305b19357b30c40d7572c4f957c0aa4985c92dfb568417
+source archive SHA-512                fc33c1ad639e67662929e104963593f9dc70974505dc47632ce7e3c40771825325cf0ebe09396c6ccf4b6b973ae540aa54c61f8c5384a9ff00f15c6b241d2a33
+release key SHA-256                   c1f8892b9576ce1807732a985243311d272ab422fc30958a2fb78d5bfc8d36a6
+```
+
+The release and installation procedure are intentionally separate from
+historical r0–r37 checkpoints. Those checkpoints remain available in
+`docs/VALIDATION.md` for regression archaeology; this README's current status
+and commands refer to r38.
+
+No photograph, raw frame, device identifier, account credential, proprietary
+Android library or vendor tuning blob belongs in this repository.
+
+## Historical validation notes (r0-r37)
 
 The current AArch64 package was built from commit
 `5e102b7d4b6bf6b4dcfeabe8f9040ffff8cc1ffd`. It includes the labelled
@@ -260,7 +659,7 @@ images show softness/low local contrast on IMX519 and a green cast with
 fixed-pattern grid noise on IMX376; these defects are tracked as calibration
 work rather than hidden behind a stronger saturation preset.
 
-## Project status
+### Historical project status (superseded by the current status above)
 
 The current camera-quality line adds a real rear manual-focus control and
 capture barrier to the existing tap-focus path. A tap is handled by a capture-
