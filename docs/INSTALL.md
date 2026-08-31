@@ -113,18 +113,22 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r34 package
+## OnePlus 6T r35 package
 
-The current tested package is source commit
-`0376f68c6808517fdc368d8e92ce67a0463ce960`, package revision r34. Build it
+The current reproducible package is source commit
+`d8eff869ffc98ca69b5d4c24d3537cd3660d2ece`, package revision r35. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
-to the booted phone. The package is independent of distro Snapshot, so it can
-be upgraded or removed without replacing `/usr/bin/snapshot`:
+to a booted phone. It contains the named Green-cast correction starting point
+and automatically disables AWB when that custom matrix is selected. The
+package is independent of distro Snapshot, so it can be upgraded or removed
+without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r34.apk \
-  advanced-snapshot-lang-0.1.0-r34.apk user@PHONE:/tmp/
+scp advanced-snapshot-0.1.0-r35.apk \
+  advanced-snapshot-lang-0.1.0-r35.apk user@PHONE:/tmp/
 ssh user@PHONE 'sudo apk add --allow-untrusted \
+  /tmp/advanced-snapshot-0.1.0-r35.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r35.apk'
 ```
 
 Stop any running Advanced Snapshot window before replacing the files, then
