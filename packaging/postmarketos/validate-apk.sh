@@ -11,7 +11,7 @@ snapshot_apk=${2-}
 lang_apk=${3-}
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 key_dir=${APK_KEY_DIR:-$script_dir/../keys}
-key_file=${APK_KEY_FILE:-$key_dir/pmos@local-6a8b0868.rsa.pub}
+key_file=${APK_KEY_FILE:-$key_dir/pmos@local-6a92d930.rsa.pub}
 apk_verify_tool=${APK_VERIFY_TOOL:-apk}
 
 for command_name in \

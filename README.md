@@ -159,7 +159,7 @@ advanced-snapshot-hdr --output merged.jpg \
 
 The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r33,
 PipeWire libcamera SPA r8 and postmarketOS edge. The current app package is the
-source-built r36 development line. The lower layer passes all-sensor stream
+source-built r37 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
 manual lens-position sweep. The r33 simple-IPA profiles add a bounded,
 row-sum-preserving green-cast correction to all three sensors and expose a
@@ -168,6 +168,11 @@ excess in controlled IMX519 and IMX376 rear captures while keeping neutral
 frames neutral; it is not a factory CCM, lens-shading table or Android vendor
 ISP replacement. The application also passes repeated native still capture on
 IMX371 and one full-resolution capture after tap-focus on each rear module.
+The r37 application preset now uses the exact same stronger matrix as those
+native profiles: `[0.90, 0.10, 0.00; 0.10, 0.80, 0.10; 0.00, 0.10, 0.90]`.
+It is applied to preview and saved captures only when the user selects the
+visible Green-cast correction action; the action deliberately switches to
+manual white balance because that is required by the standard matrix control.
 Generic webcams still use the inherited Snapshot paths; phone-specific
 controls degrade safely when absent.
 
@@ -211,14 +216,19 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`df308e9d95ba9d90ac6866010db3b95ce9d11de4`. It includes the labelled
+`71e3378aacf59c87696af8acd2086418dfa0ea64`. It includes the labelled
 **Image Controls** entry, Gamma, sensor-model tone defaults, per-sensor
 automatic/manual white balance, writable colour-matrix calibration, narrow-
 screen **Camera calibration** profiles, an unobstructed toolbar zoom chip and
 the reliable standalone full-resolution still path plus the visible
 **Green-cast correction** action. The exact package pair is recorded in
-`docs/VALIDATION.md`. The main APK is `advanced-snapshot-0.1.0-r36.apk`; its exact artifact hashes are
-recorded in
+`docs/VALIDATION.md`. The main APK is `advanced-snapshot-0.1.0-r37.apk`; its
+SHA-256 is
+`8cdd69242116036009c89b51c43a17f99498221b902146a7641d386d067dfc0d`, and the
+release-signed language APK is `advanced-snapshot-lang-0.1.0-r37.apk` with
+SHA-256 `4b6a45b36e7429a4ab453515469e5cb760f167140985da073002f8e196a1b874`.
+They are signed by `pmos@local-6a92d930.rsa.pub`.
+The exact artifact hashes are also recorded in
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md`.
 
 The source-equivalent r28 candidate completed six consecutive IMX371 captures

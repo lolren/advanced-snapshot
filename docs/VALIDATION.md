@@ -1,5 +1,40 @@
 # Validation record
 
+## 0.1.0-r37 native green-cast preset alignment checkpoint
+
+- Date: 2026-08-31
+- Source commit: `71e3378aacf59c87696af8acd2086418dfa0ea64`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack target: kernel r10, libcamera/IPA r35 and PipeWire SPA r8
+- Source archive SHA-512:
+  `045060da51ae93322467b727abc337e59fa297e88ae06a0793049541a3f3f86d189ee7b9dfa23a62a1a6dd058586d396392c31836c743bf1a9f5643544703917`
+- Release-signed main APK: `advanced-snapshot-0.1.0-r37.apk`
+  (`8cdd69242116036009c89b51c43a17f99498221b902146a7641d386d067dfc0d`)
+- Release-signed language APK: `advanced-snapshot-lang-0.1.0-r37.apk`
+  (`4b6a45b36e7429a4ab453515469e5cb760f167140985da073002f8e196a1b874`)
+- Package signing key: `pmos@local-6a92d930.rsa.pub`
+  (`c1f8892b9576ce1807732a985243311d272ab422fc30958a2fb78d5bfc8d36a6`)
+- Package tests: 15 application, 10 HDR-helper and 9 Aperture tests passed
+- Artifact validation: passed with the release APK signature,
+  AArch64 executable checks, exact manifest, language split, metadata, schema,
+  resource namespace, stale-identifier scan, mobile UI contract and zero file
+  ownership overlap with distro `snapshot-50.0-r2`
+
+The r36 visible Green-cast correction action still used the older `.95/.90`
+matrix. r37 aligns the application preset with the stronger native OnePlus
+r35 profiles for IMX371, IMX376 and IMX519:
+`[0.90, 0.10, 0.00; 0.10, 0.80, 0.10; 0.00, 0.10, 0.90]`. The correction is
+row-sum preserving and is submitted with manual white balance, because the
+standard libcamera matrix control is only active in that mode. This is a
+repeatable scene-level starting point, not factory calibration or Android ISP
+parity.
+
+The source build, release signing and offline artifact checks are complete. Physical
+installation and live preview/photo verification of r37 remain device-gated
+until the phone's authenticated SSH channel returns a usable session; the
+already-installed native r35 lower-layer correction was separately measured
+on all three sensors.
+
 ## 0.1.0-r36 live green-cast control package checkpoint
 
 - Date: 2026-08-31

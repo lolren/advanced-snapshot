@@ -89,9 +89,10 @@ the selector to **Custom**. Save a tuned result through **Calibrate → Save
 Current Profile** when it should survive camera selection and app restarts.
 
 If the selected OnePlus 6T camera still looks green, press **Image Controls →
-Green-cast correction → Apply**. This applies the r35 row-sum-preserving
-matrix used by the native IMX371/IMX376/IMX519 profiles to the live preview and saved captures and turns automatic
-white balance off, as required for a standard `ColourCorrectionMatrix` request.
+Green-cast correction → Apply**. The r37 package applies the exact r35
+row-sum-preserving matrix used by the native IMX371/IMX376/IMX519 profiles to
+the live preview and saved captures, and turns automatic white balance off, as
+required for a standard `ColourCorrectionMatrix` request.
 Press **Reset** to return to automatic white balance and the sensor defaults.
 The action applies to the currently selected camera; for a camera-specific
 result, use **Camera calibration** with a grey card or colour chart and save the
@@ -122,23 +123,31 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r36 package
+## OnePlus 6T r37 package
 
 The current reproducible package is source commit
-`df308e9d95ba9d90ac6866010db3b95ce9d11de4`, package revision r36. Build it
+`71e3378aacf59c87696af8acd2086418dfa0ea64`, package revision r37. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
 to a booted phone. It contains the visible Green-cast correction action and
-automatically disables AWB when that matrix is selected. The
+uses the same stronger `[0.90, 0.10, 0.00; 0.10, 0.80, 0.10; 0.00, 0.10,
+0.90]` matrix as the native OnePlus sensor profiles. It automatically disables
+AWB when that matrix is selected. The
 package is independent of distro Snapshot, so it can be upgraded or removed
 without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r36.apk \
-  advanced-snapshot-lang-0.1.0-r36.apk user@PHONE:/tmp/
-ssh user@PHONE 'sudo apk add --allow-untrusted \
-  /tmp/advanced-snapshot-0.1.0-r36.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r36.apk'
+scp advanced-snapshot-0.1.0-r37.apk \
+  advanced-snapshot-lang-0.1.0-r37.apk \
+  packaging/keys/pmos@local-6a92d930.rsa.pub user@PHONE:/tmp/
+ssh user@PHONE 'sudo install -m 0644 /tmp/pmos@local-6a92d930.rsa.pub \
+  /etc/apk/keys/ && sudo apk add \
+  /tmp/advanced-snapshot-0.1.0-r37.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r37.apk'
 ```
+
+Verify the downloaded APKs before copying them; the release hashes are in
+`docs/VALIDATION.md`. The public key is safe to install, but never copy or
+publish the corresponding private signing key.
 
 Stop any running Advanced Snapshot window before replacing the files, then
 launch `advanced-snapshot` again. No phone reboot is required for an
