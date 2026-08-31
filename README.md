@@ -81,7 +81,7 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   ISP; they are not a display tint. **Reset** restores automatic white balance,
   the sensor-aware tone defaults, continuous autofocus and 1x zoom.
 - If the selected camera still has a green cast, press **Green-cast correction →
-  Apply** in the same drawer. This applies the conservative, row-sum-preserving
+  Apply** in the same drawer. This applies the r35, row-sum-preserving
   OnePlus starting matrix to the live preview and saved captures, and turns off
   automatic white balance because the standard libcamera matrix control is only
   active in manual-WB mode. Press **Reset** to undo it. The lower-layer sensor
@@ -95,8 +95,8 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   matrix** and tune the nine row-major camera-RGB-to-sRGB coefficients against
   a colour chart. Keep each row sum near 1 while correcting hue; **Identity**,
   **Green-cast correction** and **Colour boost** are safe starting points, not
-  measured values. Green-cast correction uses the same moderate
-  grey-preserving matrix as the OnePlus r34 profiles and automatically selects
+  measured values. Green-cast correction uses the same stronger r35
+  grey-preserving matrix as the native OnePlus profiles and automatically selects
   manual white balance so the matrix is active. Adjust
   Gamma, Colour, Contrast, Detail, Exposure and focus while viewing the live
   preview, capture a reference photo, then press **Calibrate → Save Current

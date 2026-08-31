@@ -63,8 +63,8 @@ stable sensor identity in GSettings. The OnePlus development stack exposes the
 standard colour-matrix control, but it does not provide factory coefficients,
 a lens-shading table or vendor denoise controls. **Identity**, **Green-cast
 correction** and **Colour boost** are deliberately labelled starting points.
-Green-cast correction is a moderate scene-level matrix, not a factory
-calibration. The live Image Controls drawer also exposes the same correction as
+Green-cast correction uses the same r35 scene-level matrix as the native
+OnePlus profiles; it is not a factory calibration. The live Image Controls drawer also exposes the same correction as
 an explicit Apply action for quick testing on the currently selected camera;
 Apply turns automatic white balance off and Reset returns to the automatic
 sensor path. Use a grey card and colour

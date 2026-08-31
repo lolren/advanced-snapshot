@@ -62,7 +62,7 @@ control. The zoom-value chip lives in the toolbar instead of over the capture-
 mode selector, and the calibration dialog presents one matrix coefficient per
 row so it fits a 360-logical-pixel phone. r36 adds a visible Green-cast
 correction action beside the live white-balance controls, using the same
-moderate row-sum-preserving matrix as the OnePlus r34 sensor profiles. Applying
+r35 row-sum-preserving matrix as the native OnePlus sensor profiles. Applying
 it turns automatic white balance off because the libcamera contract applies a
 custom matrix only in manual-WB mode; Reset reverses it. These changes are
 included in source commit

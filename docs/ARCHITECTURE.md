@@ -143,7 +143,8 @@ matrix again. Matrix controls and the two convenience presets are calibration
 inputs, not claims that a factory profile has been recovered.
 
 The Image Controls drawer exposes a separate **Green-cast correction → Apply**
-action. It uses the conservative OnePlus row-sum-preserving starting matrix,
+action. It uses the r35 OnePlus row-sum-preserving starting matrix shared by
+the native IMX371, IMX376 and IMX519 profiles,
 explicitly disables AWB, and marks the selector Custom so the user can see that
 the live pipeline is no longer automatic. **Reset** reverses the action. This
 is intentionally the same reproducible starting point as the calibration

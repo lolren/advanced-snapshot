@@ -14,7 +14,7 @@
   (`32a2893a5e2fa2a68c6a17a2f4581e9a5fa1c78b75cccbb4efd2f04dc5888a5e`)
 
 The package adds a visible **Green-cast correction → Apply** action to the live
-Image Controls drawer. It applies the conservative, row-sum-preserving OnePlus
+Image Controls drawer. It applies the r35, row-sum-preserving OnePlus
 matrix to the current camera and turns automatic white balance off so the
 standard libcamera matrix request is active. **Reset** restores the automatic
 path. The action is a repeatable starting point, not a factory CCM or a claim

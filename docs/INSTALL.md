@@ -89,8 +89,8 @@ the selector to **Custom**. Save a tuned result through **Calibrate → Save
 Current Profile** when it should survive camera selection and app restarts.
 
 If the selected OnePlus 6T camera still looks green, press **Image Controls →
-Green-cast correction → Apply**. This applies the conservative row-sum-
-preserving matrix to the live preview and saved captures and turns automatic
+Green-cast correction → Apply**. This applies the r35 row-sum-preserving
+matrix used by the native IMX371/IMX376/IMX519 profiles to the live preview and saved captures and turns automatic
 white balance off, as required for a standard `ColourCorrectionMatrix` request.
 Press **Reset** to return to automatic white balance and the sensor defaults.
 The action applies to the currently selected camera; for a camera-specific

@@ -279,10 +279,14 @@ mod tests {
     use crate::camera_profile::GREEN_CAST_CCM;
 
     #[test]
-    fn green_cast_matrix_preserves_equal_channel_grey() {
+    fn green_cast_matrix_matches_the_native_r35_profile() {
         for row in GREEN_CAST_CCM.chunks_exact(3) {
             let sum: f64 = row.iter().sum();
             assert!((sum - 1.0).abs() < 1.0e-12);
         }
+        assert_eq!(
+            GREEN_CAST_CCM,
+            [0.90, 0.10, 0.0, 0.10, 0.80, 0.10, 0.0, 0.10, 0.90,]
+        );
     }
 }
