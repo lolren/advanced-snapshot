@@ -787,6 +787,22 @@
                                 </child>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Green-cast correction</property>
+                                    <property name="subtitle" translatable="yes">Apply the OnePlus starting matrix; switches to manual white balance. Save from Calibrate if useful.</property>
+                                    <child>
+                                      <object class="GtkButton" id="green_cast_correction_button">
+                                        <property name="label" translatable="yes">Apply</property>
+                                        <property name="valign">center</property>
+                                        <property name="tooltip-text" translatable="yes">Apply the conservative green-cast correction to the live preview and saved photos</property>
+                                        <style>
+                                          <class name="pill" />
+                                        </style>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Red balance gain</property>
                                     <property name="subtitle" translatable="yes">Manual red gain relative to green; disable automatic white balance first</property>
                                     <child>

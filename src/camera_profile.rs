@@ -10,6 +10,11 @@ use gtk::{gio, gio::prelude::SettingsExt, glib};
 const PROFILES_KEY: &str = "camera-calibration-profiles";
 const PROFILE_GROUP_PREFIX: &str = "camera-";
 pub const IDENTITY_CCM: [f64; 9] = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+/// A conservative row-sum-preserving starting point for the OnePlus 6T's
+/// residual green cast. It is deliberately a user-selectable fallback: the
+/// native sensor profiles apply their own automatic-WB correction, while this
+/// app-level matrix is valid only with manual white balance.
+pub const GREEN_CAST_CCM: [f64; 9] = [0.95, 0.05, 0.0, 0.05, 0.90, 0.05, 0.0, 0.05, 0.95];
 
 /// The values controlled by the Advanced Snapshot image-controls panel.
 ///

@@ -145,6 +145,8 @@ mod imp {
         #[template_child]
         pub auto_white_balance_switch: TemplateChild<gtk::Switch>,
         #[template_child]
+        pub green_cast_correction_button: TemplateChild<gtk::Button>,
+        #[template_child]
         pub red_gain_scale: TemplateChild<gtk::Scale>,
         #[template_child]
         pub blue_gain_scale: TemplateChild<gtk::Scale>,
@@ -456,6 +458,12 @@ mod imp {
                 ));
             }
             obj.update_manual_white_balance_controls();
+            self.green_cast_correction_button
+                .connect_clicked(glib::clone!(
+                    #[weak]
+                    obj,
+                    move |_| obj.apply_green_cast_correction()
+                ));
             self.focus_scale.connect_value_changed(glib::clone!(
                 #[weak]
                 obj,
@@ -1129,6 +1137,28 @@ impl Camera {
         }
     }
 
+    fn apply_green_cast_correction(&self) {
+        let imp = self.imp();
+        if imp.viewfinder.camera().is_none() {
+            return;
+        }
+
+        /* The standard libcamera contract accepts a request CCM only with
+         * automatic white balance disabled. Keep this action explicit and
+         * reversible; the native sensor profile remains the automatic path. */
+        if imp.auto_white_balance_switch.is_active() {
+            imp.auto_white_balance_switch.set_active(false);
+        }
+        self.set_colour_calibration(true, camera_profile::GREEN_CAST_CCM);
+        self.set_colour_preset_selection(COLOUR_PRESET_CUSTOM);
+
+        if let Some(window) = self.root().and_downcast::<crate::Window>() {
+            window.send_toast(
+                "Green-cast correction applied; automatic white balance is off. Use Reset to undo.",
+            );
+        }
+    }
+
     fn clear_manual_focus_state(&self) {
         if let Some(handler) = self.imp().manual_focus_handler.take() {
             handler.remove();
@@ -1601,12 +1631,13 @@ impl Camera {
 
     fn set_hdr_controls_sensitive(&self, sensitive: bool) {
         let imp = self.imp();
-        let controls: [&gtk::Widget; 20] = [
+        let controls: [&gtk::Widget; 21] = [
             imp.exposure_scale.upcast_ref(),
             imp.auto_exposure_switch.upcast_ref(),
             imp.shutter_scale.upcast_ref(),
             imp.gain_scale.upcast_ref(),
             imp.auto_white_balance_switch.upcast_ref(),
+            imp.green_cast_correction_button.upcast_ref(),
             imp.red_gain_scale.upcast_ref(),
             imp.blue_gain_scale.upcast_ref(),
             imp.focus_scale.upcast_ref(),

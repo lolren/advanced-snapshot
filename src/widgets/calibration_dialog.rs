@@ -8,7 +8,6 @@ use std::rc::Rc;
 use crate::camera_profile::{self, CameraProfile};
 
 const COLOUR_BOOST_CCM: [f64; 9] = [1.10, -0.05, -0.05, -0.05, 1.10, -0.05, -0.05, -0.05, 1.10];
-const GREEN_CAST_CCM: [f64; 9] = [0.95, 0.05, 0.0, 0.05, 0.90, 0.05, 0.0, 0.05, 0.95];
 
 mod imp {
     use super::*;
@@ -117,7 +116,7 @@ impl CalibrationDialog {
         imp.green_cast_matrix_button.connect_clicked(glib::clone!(
             #[weak(rename_to = dialog)]
             dialog,
-            move |_| dialog.set_colour_calibration(true, GREEN_CAST_CCM)
+            move |_| dialog.set_colour_calibration(true, camera_profile::GREEN_CAST_CCM)
         ));
         imp.colour_boost_matrix_button.connect_clicked(glib::clone!(
             #[weak(rename_to = dialog)]
@@ -277,7 +276,7 @@ fn format_profile(profile: CameraProfile) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::GREEN_CAST_CCM;
+    use crate::camera_profile::GREEN_CAST_CCM;
 
     #[test]
     fn green_cast_matrix_preserves_equal_channel_grey() {
