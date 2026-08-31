@@ -1696,14 +1696,23 @@ impl Viewfinder {
             return;
         }
 
+        /*
+         * A fresh raw still stream can expose the previous terminal AF state
+         * until its first statistics arrive. With no tap or manual lens
+         * position, explicitly trigger a large centre-weighted scan instead
+         * of accepting that stale state as proof that the new still is ready.
+         */
         let process = match launcher.spawn(&[
             OsStr::new(FOCUS_HELPER),
-            OsStr::new("wait"),
+            OsStr::new("focus"),
             OsStr::new(&serial_arg),
+            OsStr::new("0.5"),
+            OsStr::new("0.5"),
+            OsStr::new("0.5"),
         ]) {
             Ok(process) => process,
             Err(err) => {
-                log::warn!("Could not wait for still-stream autofocus: {err}");
+                log::warn!("Could not start still-stream automatic focus: {err}");
                 return;
             }
         };
@@ -2100,10 +2109,12 @@ impl Viewfinder {
                 // must not be overwritten by the default.
                 glib::timeout_future(Duration::from_millis(750)).await;
                 let imp = obj.imp();
-                if imp.stream_request_is_current(generation)
-                    && !imp.manual_focus_active.get()
-                    && imp.focus_process.borrow().is_none()
-                {
+                if should_restore_continuous_autofocus(
+                    imp.stream_request_is_current(generation),
+                    imp.manual_focus_active.get(),
+                    imp.focus_process.borrow().is_some(),
+                    imp.last_focus_coordinates.get().is_some(),
+                ) {
                     obj.set_auto_focus();
                 }
             }
@@ -2796,6 +2807,15 @@ impl Viewfinder {
     }
 }
 
+fn should_restore_continuous_autofocus(
+    stream_is_current: bool,
+    manual_focus_active: bool,
+    focus_request_in_flight: bool,
+    tap_focus_selected: bool,
+) -> bool {
+    stream_is_current && !manual_focus_active && !focus_request_in_flight && !tap_focus_selected
+}
+
 fn clamp_zoom(zoom: f64, max_zoom: f64) -> f64 {
     let upper = if max_zoom.is_finite() {
         if max_zoom < 1.0 {
@@ -2862,7 +2882,7 @@ fn create_qrcode_bin() -> Result<gst::Element, glib::BoolError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{FocusResult, clamp_zoom, parse_focus_result};
+    use super::{FocusResult, clamp_zoom, parse_focus_result, should_restore_continuous_autofocus};
 
     #[test]
     fn parses_truthful_focus_results() {
@@ -2883,5 +2903,24 @@ mod tests {
         assert_eq!(clamp_zoom(2.0, f64::NAN), 1.0);
         assert_eq!(clamp_zoom(f64::NAN, 4.0), 1.0);
         assert_eq!(clamp_zoom(5.0, 3.0), 3.0);
+    }
+
+    #[test]
+    fn startup_autofocus_does_not_overwrite_user_focus_selection() {
+        assert!(should_restore_continuous_autofocus(
+            true, false, false, false
+        ));
+        assert!(!should_restore_continuous_autofocus(
+            true, true, false, false
+        ));
+        assert!(!should_restore_continuous_autofocus(
+            true, false, true, false
+        ));
+        assert!(!should_restore_continuous_autofocus(
+            true, false, false, true
+        ));
+        assert!(!should_restore_continuous_autofocus(
+            false, false, false, false
+        ));
     }
 }

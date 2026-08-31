@@ -49,9 +49,11 @@ Natural, Vivid and Custom colour-processing presets; presets change only the
 live tone controls and preserve exposure, white balance, focus and matrix
 settings. Rear sensors are returned to continuous autofocus
 after the preview starts; the panel also exposes an explicit Auto button.
-Tapping the preview requests one-shot autofocus at that location, while the
-manual-focus slider remains an intentional lock. The fixed-focus front sensor
-keeps those rear-only controls disabled. Gamma is exposed as the standard
+Tapping the preview requests one-shot autofocus at that location, while a
+still capture with no tap or manual lock requests a fresh centre-weighted
+one-shot scan on the high-resolution stream. The manual-focus slider remains
+an intentional lock. The fixed-focus front sensor keeps those rear-only
+controls disabled. Gamma is exposed as the standard
 0.1–10 tone-curve control. The Camera Calibration panel stores a versioned
 per-sensor profile in GSettings, keyed by the stable libcamera node identity;
 it can restore automatic/manual white balance, bounded red/blue ISP gains,

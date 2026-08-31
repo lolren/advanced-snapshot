@@ -51,9 +51,11 @@ A tap leaves one-shot autofocus locked at the chosen position; it does not
 schedule a delayed movement that could blur the subsequent still. The
 standalone full-resolution still path snapshots the last tap or manual lens
 choice before stopping preview and reapplies it after the new raw stream is
-ready. Automatic mode instead waits for the new stream's terminal AF result.
-Thus the focus barrier covers the stream that actually supplies the saved
-JPEG, not merely the preview that preceded it.
+ready. With neither choice present, it requests a fresh, large centre-weighted
+one-shot scan on the still stream and waits for its correlated terminal AF
+result; it does not accept a stale `focused` state left by the preview. Thus the
+focus barrier covers the stream that actually supplies the saved JPEG, not
+merely the preview that preceded it.
 
 ## Software HDR
 

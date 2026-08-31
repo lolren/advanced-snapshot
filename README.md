@@ -63,10 +63,11 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   restore continuous autofocus. The control is unavailable on the fixed-focus
   front camera.
 - Still capture reapplies the last rear tap-focus window or manual lens
-  position after opening the high-resolution photo stream. In automatic mode it
-  waits for that new stream's autofocus scan to settle before exposing the
-  sensor. A failed or unavailable result is logged and capture continues with
-  the last stable lens position.
+  position after opening the high-resolution photo stream. With neither set, it
+  requests a fresh large centre-weighted autofocus scan on that still stream
+  and waits for its result, avoiding a stale terminal state from the preview.
+  A failed or unavailable result is logged and capture continues with the last
+  stable lens position.
 - Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
   value chip in the toolbar above the preview and the **Main Menu → Image
   Controls → Zoom** slider stay in sync. Tap the value chip to return directly

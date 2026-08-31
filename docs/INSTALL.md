@@ -57,8 +57,10 @@ On the OnePlus 6T, **Image Controls → Manual focus position** sends the
 standard `LensPosition` control through the installed helper. Use 0 for the far
 end and 2 for the near end; the slider is disabled for the fixed-focus front
 camera. A preview tap returns to one-shot autofocus, and **Reset** returns to
-continuous autofocus. If the control is missing, the UI remains usable and
-logs the unavailable capability instead of writing raw V4L2 values.
+continuous autofocus. A still capture with no tap or manual lock performs its
+own centre-weighted one-shot autofocus on the high-resolution stream before
+encoding. If the control is missing, the UI remains usable and logs the
+unavailable capability instead of writing raw V4L2 values.
 
 The **Gamma** slider sends the standard `Gamma` property when the selected
 camera advertises it. The OnePlus 6T lower layer starts the IMX371, IMX376 and
