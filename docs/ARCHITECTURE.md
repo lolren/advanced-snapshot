@@ -48,7 +48,12 @@ and uses red for `failed` or an infrastructure error. A new tap terminates the
 previous helper and generation checks suppress every stale callback. The
 fixed-focus front camera publishes no AF state and receives no focus gesture.
 A tap leaves one-shot autofocus locked at the chosen position; it does not
-schedule a delayed movement that could blur the subsequent still.
+schedule a delayed movement that could blur the subsequent still. The
+standalone full-resolution still path snapshots the last tap or manual lens
+choice before stopping preview and reapplies it after the new raw stream is
+ready. Automatic mode instead waits for the new stream's terminal AF result.
+Thus the focus barrier covers the stream that actually supplies the saved
+JPEG, not merely the preview that preceded it.
 
 ## Software HDR
 

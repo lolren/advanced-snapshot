@@ -1,5 +1,48 @@
 # Validation record
 
+## 0.1.0-r34 camera-page live-controls checkpoint
+
+- Date: 2026-08-31
+- Source commit: `0376f68c6808517fdc368d8e92ce67a0463ce960`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r33 and PipeWire SPA r8
+- Source archive SHA-512:
+  `1585e20a473dbee181eebc2d821bc081d0f27173c8704c7723b4822817243b6872abfea6e3023552fa0f2cec768f6d00d998fe74954103f1c958b78e0a3828dd`
+- Main APK: `advanced-snapshot-0.1.0-r34.apk`
+  (`7f94c88bbc5d7ec300a7f2f1481dff7f882bd43480506fef18f79fdffa390c74`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r34.apk`
+  (`6326708ca21e1dacd4e4264cf48358ccc59d8a99dc2f88be5d36cc46f19ef5de`)
+
+The exact pinned archive completed the optimized AArch64 package build and
+the package test phase. All 14 application, 10 HDR-helper and 9 Aperture tests
+passed. The artifact validator accepted the local package signatures,
+architectures, exact file manifests, language split, metadata, schema,
+resource namespace, coexistence with distro `snapshot-50.0-r3` and mobile UI
+contract. Its preset check verifies the named runtime model strings in the
+executable while checking the selector and drawer structure in the GtkBuilder
+resource.
+
+The r33 camera page contains a labelled **Image Controls** button directly
+above the preview. Activating it opens a bounded, scrollable overlay drawer on
+the camera page; the upper live preview remains visible while focus, exposure,
+white balance, tone, zoom, flash, HDR and colour-profile values are changed.
+The named Sensor default, Neutral, Natural, Vivid and Custom presets modify
+only live tone controls and preserve exposure, white balance, focus and matrix
+state. The Preferences page is not required for normal camera tuning.
+
+The packaged artifact is ready for an application-only upgrade. Device visual
+acceptance and touch interaction remain a separate gate from this offline
+artifact validation.
+
+The matching lower stack is separately validated for the OnePlus 6T camera
+colour correction: all three simple-IPA profiles use the bounded matrix
+`[0.97, 0.03, 0.00; 0.03, 0.94, 0.03; 0.00, 0.03, 0.97]`. A 96-frame equal-
+channel IMX519 test-pattern capture settled to RGB means 119.0, 119.0 and
+120.04, while controlled rear captures reduced green excess on both IMX519 and
+IMX376. The matrix is a downstream scene-level correction, not factory
+calibration; controlled chart/illuminant measurements are still required for
+stronger Android-vendor parity.
+
 ## 0.1.0-r32 colour calibration and mobile layout checkpoint
 
 - Date: 2026-08-30

@@ -117,11 +117,20 @@ grep -Fq 'id="image_controls_overlay_button"' "$camera_ui"
 grep -Fq 'win.image-controls' "$camera_ui"
 grep -Fq 'Tap preview to focus' "$camera_ui"
 grep -Fq 'Colour profile' "$camera_ui"
-grep -Fq 'Sensor default' "$camera_ui"
-grep -Fq 'Natural' "$camera_ui"
-grep -Fq 'Vivid' "$camera_ui"
+grep -Fq 'id="colour_preset_dropdown"' "$camera_ui"
 grep -Fq 'image-controls-drawer' "$camera_ui"
 grep -Fq '<property name="height-request">360</property>' "$camera_ui"
+
+# The preset labels are installed by the Rust model at runtime rather than
+# stored in GtkBuilder XML. Check the executable so a package cannot silently
+# ship the selector without its named processing modes.
+for colour_preset in 'Sensor default' Neutral Natural Vivid Custom; do
+	if ! strings "$root_dir/usr/bin/advanced-snapshot" | grep -Fq "$colour_preset"; then
+		printf 'missing colour preset label: %s\n' "$colour_preset" >&2
+		exit 1
+	fi
+done
+
 zoom_in_toolbar=$(
 	xmllint --xpath \
 		'count(//object[@id="image_controls_toolbar"]/child/object[@id="zoom_reset_button"])' \

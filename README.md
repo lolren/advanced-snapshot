@@ -41,7 +41,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Synchronized digital zoom | The image-control slider, two-finger pinch gesture and toolbar value chip share one 1x–4x Camerabin zoom value; tapping the chip resets to 1x | Live 33 ms coalesced updates; the value was moved out of the preview so it cannot overlap the photo/video/QR selector |
 | Photo, video and QR modes | Retains Snapshot's capture, recording, gallery and code-detection flows | Implemented |
 | Focus-result state | Correlates each accepted trigger with libcamera `AfState` request metadata instead of treating control acceptance as optical success | Implemented and accepted with the OnePlus 6T r7 transport |
-| Capture-after-focus barrier | Waits for a rear continuous-AF scan to reach a terminal state before a still or HDR sequence starts, preventing blurred in-between lens positions | Implemented; best-effort fallback keeps fixed-focus and older stacks usable |
+| Capture-after-focus barrier | Reapplies the last tap focus or manual lens position after the preview-to-photo stream hand-off, or waits for the new stream's own AF result before a still/HDR sequence starts | Implemented on the OnePlus 6T raw still path; best-effort fallback keeps fixed-focus and older stacks usable |
 | Factory-calibrated colour | Validated sensor/module CCM, lens shading and proprietary ISP tuning | Not implemented and never shown as available |
 
 “Android-class” is a feature-by-feature target, not a marketing claim. A
@@ -62,9 +62,11 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   tap the preview to replace it with one-shot autofocus, or press **Reset** to
   restore continuous autofocus. The control is unavailable on the fixed-focus
   front camera.
-- Still capture waits for the active rear autofocus scan to settle before
-  exposing the sensor. A failed or unavailable focus result is logged and the
-  capture continues with the last stable lens position.
+- Still capture reapplies the last rear tap-focus window or manual lens
+  position after opening the high-resolution photo stream. In automatic mode it
+  waits for that new stream's autofocus scan to settle before exposing the
+  sensor. A failed or unavailable result is logged and capture continues with
+  the last stable lens position.
 - Spread or pinch two fingers over the preview to zoom between 1x and 4x. The
   value chip in the toolbar above the preview and the **Main Menu → Image
   Controls → Zoom** slider stay in sync. Tap the value chip to return directly
@@ -144,15 +146,17 @@ advanced-snapshot-hdr --output merged.jpg \
   --input dark.jpg --input normal.jpg --input bright.jpg
 ```
 
-The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r30,
+The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r33,
 PipeWire libcamera SPA r8 and postmarketOS edge. The current app package is the
-source-built r32 development line. The lower layer passes all-sensor stream
+source-built r34 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
-manual lens-position sweep. The application now also passes repeated native
-still capture on IMX371 and one full-resolution capture after tap-focus on each
-rear module. Saved-photo colour remains a separate device-scene gate rather
-than a claim of Android vendor parity: current reference images still show a
-green cast/fixed-pattern noise on IMX376 and softness on IMX519.
+manual lens-position sweep. The r33 simple-IPA profiles add a bounded,
+row-sum-preserving green-cast correction to all three sensors and expose a
+reproducible equal-channel test-pattern check. This reduces the measured green
+excess in controlled IMX519 and IMX376 rear captures while keeping neutral
+frames neutral; it is not a factory CCM, lens-shading table or Android vendor
+ISP replacement. The application also passes repeated native still capture on
+IMX371 and one full-resolution capture after tap-focus on each rear module.
 Generic webcams still use the inherited Snapshot paths; phone-specific
 controls degrade safely when absent.
 
@@ -196,17 +200,15 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`aa9fea6464c580c308cefecc6383f57c58910102`. It includes the labelled
+`0376f68c6808517fdc368d8e92ce67a0463ce960`. It includes the labelled
 **Image Controls** entry, Gamma, sensor-model tone defaults, per-sensor
 automatic/manual white balance, writable colour-matrix calibration, narrow-
 screen **Camera calibration** profiles, an unobstructed toolbar zoom chip and
 the reliable standalone full-resolution
 still path. The exact package pair is recorded in `docs/VALIDATION.md` and is
 installed on the connected OnePlus 6T without reboot. The main APK is
-`advanced-snapshot-0.1.0-r32.apk` with SHA-256
-`269f68cb9d2fc7061a7277f21f70c87641d2a20a7206a090bbbbbd279a09ce5b`; the
-language APK is `advanced-snapshot-lang-0.1.0-r32.apk` with SHA-256
-`8bc79a14ed890dd429188cb7b173cc9d13c61572c92faea4b4f24de66501e377`.
+`advanced-snapshot-0.1.0-r34.apk`; its exact artifact hashes are recorded in
+`packaging/postmarketos/README.md` and `docs/VALIDATION.md`.
 
 The source-equivalent r28 candidate completed six consecutive IMX371 captures
 and one capture after tap-focus on each rear sensor. Every file was a valid

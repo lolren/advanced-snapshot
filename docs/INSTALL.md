@@ -33,18 +33,22 @@ pmos-camera-flash --status
 The status command is read-only. A report with no writable `*:flash` channels
 keeps the switch disabled; it does not modify LED state.
 
-On a rear autofocus camera, the still-capture path waits for the published
-libcamera autofocus state before starting the still request. This avoids
-saving a frame while the lens is between scan positions. The wait is bounded
-and best-effort, so fixed-focus cameras and older PipeWire stacks retain the
-normal capture path.
+On a rear autofocus camera, the still-capture path repeats the selected focus
+operation after the preview-to-photo hand-off. A tap focus is submitted again
+to the new full-resolution stream, a manual lens position is held and given a
+short settle period, and automatic mode waits for that stream's published
+autofocus state before releasing the JPEG. This matters because the raw still
+pipeline has its own lens state; waiting on the old preview stream alone can
+still save a blurred photo. The wait is bounded and best-effort, so fixed-focus
+cameras and older PipeWire stacks retain the normal capture path.
 
 On cameras advertising a concrete raw still mode, Advanced Snapshot does not
 ask `wrappercamerabinsrc` to renegotiate the live PipeWire source from preview
 resolution to photo resolution. The application stops the 1280x720 preview,
 opens a temporary fixed 2048x1536 raw pipeline, discards one second of warm-up
-frames for 3A convergence, encodes exactly one JPEG, validates the output and
-then restores preview. Capture has a 15-second timeout and teardown/cancellation
+frames for 3A convergence, reapplies focus on the new stream, encodes exactly
+one JPEG, validates the output and then restores preview. Capture has a
+15-second timeout and teardown/cancellation
 always returns the temporary pipeline to NULL. Cameras without a suitable raw
 mode keep the inherited Camerabin path. The rationale and diagnostic probe are
 documented in `tests/device/README.md`.
@@ -109,20 +113,18 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r32 package
+## OnePlus 6T r34 package
 
 The current tested package is source commit
-`aa9fea6464c580c308cefecc6383f57c58910102`, package revision r32. Build it
+`0376f68c6808517fdc368d8e92ce67a0463ce960`, package revision r34. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
 to the booted phone. The package is independent of distro Snapshot, so it can
 be upgraded or removed without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r32.apk \
-  advanced-snapshot-lang-0.1.0-r32.apk user@PHONE:/tmp/
+scp advanced-snapshot-0.1.0-r34.apk \
+  advanced-snapshot-lang-0.1.0-r34.apk user@PHONE:/tmp/
 ssh user@PHONE 'sudo apk add --allow-untrusted \
-  /tmp/advanced-snapshot-0.1.0-r32.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r32.apk'
 ```
 
 Stop any running Advanced Snapshot window before replacing the files, then
