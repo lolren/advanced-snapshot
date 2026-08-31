@@ -24,12 +24,12 @@ Snapshot package when it is available locally:
 APK_VERIFY_TOOL="$HOME/.local/var/pmbootstrap/apk.static" \
   APK_KEY_DIR="$HOME/.local/var/pmbootstrap/config_apk_keys" \
   ./packaging/postmarketos/validate-apk.sh \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r35.apk \
+	~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-0.1.0-r36.apk \
   ~/.local/var/pmbootstrap/packages/edge/aarch64/snapshot-50.0-r3.apk \
-  ~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r35.apk
+	~/.local/var/pmbootstrap/packages/edge/aarch64/advanced-snapshot-lang-0.1.0-r36.apk
 ```
 
-Package revision r35 contains the manual shutter/analogue-gain UI, bounded
+Package revision r36 contains the manual shutter/analogue-gain UI, bounded
 rear-flash work and opt-in Software HDR on top of the serialized image-
 adjustment transport. HDR captures three exposure-bracketed JPEGs and merges
 them with the installed `advanced-snapshot-hdr` helper. The helper aligns a
@@ -40,7 +40,7 @@ standard libcamera controls in microseconds and linear gain units. These are
 userspace features and require the matching libcamera r33 and PipeWire SPA r8
 camera stack. The helper
 is included in the main package and is covered by the staged install check.
-The r35 UI keeps the labelled Image Controls entry in a direct toolbar above
+The r36 UI keeps the labelled Image Controls entry in a direct toolbar above
 the preview and opens the controls as a bounded, scrollable camera-page
 overlay drawer. The upper preview remains visible while values change, so
 camera tuning is not buried in Preferences or dependent on bottom-sheet
@@ -60,13 +60,14 @@ position while keeping continuous autofocus as the default. It can additionally
 store a bounded 3×3 colour matrix when the lower stack advertises that standard
 control. The zoom-value chip lives in the toolbar instead of over the capture-
 mode selector, and the calibration dialog presents one matrix coefficient per
-row so it fits a 360-logical-pixel phone. r35 adds a named Green-cast
-correction starting point using the same moderate row-sum-preserving matrix as
-the OnePlus r34 sensor profiles. Selecting a custom matrix now turns automatic
-white balance off automatically, because the libcamera contract applies that
-matrix only in manual-WB mode. These changes are included in source commit
-`d8eff869ffc98ca69b5d4c24d3537cd3660d2ece`. When the preview is handed
-off to the standalone full-resolution still stream, r35 reapplies the last tap
+row so it fits a 360-logical-pixel phone. r36 adds a visible Green-cast
+correction action beside the live white-balance controls, using the same
+moderate row-sum-preserving matrix as the OnePlus r34 sensor profiles. Applying
+it turns automatic white balance off because the libcamera contract applies a
+custom matrix only in manual-WB mode; Reset reverses it. These changes are
+included in source commit
+`df308e9d95ba9d90ac6866010db3b95ce9d11de4`. When the preview is handed
+off to the standalone full-resolution still stream, r36 reapplies the last tap
 focus window, holds the selected manual lens position, or waits for the new
 stream's own autofocus result before releasing a JPEG. This closes the old
 preview-to-photo focus gap that could produce a blurred saved image.
@@ -78,10 +79,10 @@ and restores preview. Generic cameras without such a mode retain the inherited
 path. `tests/device/probe-camerabin-capture.py` preserves the three wrapper
 strategies used to reproduce the lower-level failure.
 
-The reproducible r35 build produced main APK SHA-256
-`1b8ea0f0f6449665876a72a1846b606accecbc9e90d1b984d02da534002e1e08` and
+The reproducible r36 build produced main APK SHA-256
+`8a0f08defead7406823b269f92a161963e754770e26e698ed508a1e3c631d37c` and
 language APK SHA-256
-`902e890dacc1e7f5920b0f625c1daa5bdec26053685c3e111ac6d91e0f08e974`.
+`32a2893a5e2fa2a68c6a17a2f4581e9a5fa1c78b75cccbb4efd2f04dc5888a5e`.
 The previous reference r34 build produced main APK SHA-256
 `7f94c88bbc5d7ec300a7f2f1481dff7f882bd43480506fef18f79fdffa390c74` and
 language APK SHA-256

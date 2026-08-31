@@ -30,7 +30,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source and lower-layer package; sensor-scene acceptance remains separate |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
-| Colour-processing presets | Offers Sensor default, Neutral, Natural and Vivid starting points without changing exposure, white balance, focus or a measured matrix; the calibration dialog also provides the r35 green-cast correction preset and labels manual edits Custom | Implemented |
+| Colour-processing presets | Offers Sensor default, Neutral, Natural and Vivid starting points without changing exposure, white balance, focus or a measured matrix; Image Controls also provides a one-tap green-cast correction and the calibration dialog provides the same starting matrix | Implemented |
 | Gamma tone control | Exposes the standard libcamera `Gamma` control for mid-tone tuning and selects the OnePlus sensor's conservative 2.0/2.1/2.2 startup default from the stable node model | Implemented on nodes advertising `Gamma`; calibration remains scene-dependent |
 | Automatic/manual white balance | Keeps statistics-driven AWB enabled by default or submits standard red/blue `ColourGains` to the software ISP while green remains 1.0 | Implemented and live-validated on IMX371, IMX376 and IMX519 |
 | Writable colour correction | Sends a bounded 3×3 `ColourCorrectionMatrix` together with manual white balance so chart-derived camera RGB corrections affect preview and capture in the software ISP | Implemented when the lower stack advertises the standard control; identity and a neutral-preserving colour-boost matrix are starting points, not factory calibration |
@@ -80,6 +80,14 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   later tone edit is shown as **Custom**. White-balance gains affect both preview and capture in the software
   ISP; they are not a display tint. **Reset** restores automatic white balance,
   the sensor-aware tone defaults, continuous autofocus and 1x zoom.
+- If the selected camera still has a green cast, press **Green-cast correction →
+  Apply** in the same drawer. This applies the conservative, row-sum-preserving
+  OnePlus starting matrix to the live preview and saved captures, and turns off
+  automatic white balance because the standard libcamera matrix control is only
+  active in manual-WB mode. Press **Reset** to undo it. The lower-layer sensor
+  profiles remain the automatic path; use **Camera calibration** and a grey card
+  or colour chart when a scene- or sensor-specific correction is needed. The
+  preset is a starting point, not factory ISP calibration.
 - Select **Camera calibration** from **Image Controls** after placing a grey
   card or colour chart in even light. Start with automatic white balance, then
   disable it and adjust red/blue gains until a neutral target is neutral. If
@@ -151,7 +159,7 @@ advanced-snapshot-hdr --output merged.jpg \
 
 The installed OnePlus 6T lower-layer baseline is kernel r10, libcamera/IPA r33,
 PipeWire libcamera SPA r8 and postmarketOS edge. The current app package is the
-source-built r35 development line. The lower layer passes all-sensor stream
+source-built r36 development line. The lower layer passes all-sensor stream
 tests, correlated rear-focus results, fixed-focus front fallback and the
 manual lens-position sweep. The r33 simple-IPA profiles add a bounded,
 row-sum-preserving green-cast correction to all three sensors and expose a
@@ -203,13 +211,13 @@ patch or activate an untested dependency update on the phone. See
 ## Current OnePlus 6T acceptance
 
 The current AArch64 package was built from commit
-`d8eff869ffc98ca69b5d4c24d3537cd3660d2ece`. It includes the labelled
+`df308e9d95ba9d90ac6866010db3b95ce9d11de4`. It includes the labelled
 **Image Controls** entry, Gamma, sensor-model tone defaults, per-sensor
 automatic/manual white balance, writable colour-matrix calibration, narrow-
 screen **Camera calibration** profiles, an unobstructed toolbar zoom chip and
-the reliable standalone full-resolution
-still path. The exact package pair is recorded in `docs/VALIDATION.md`. The
-main APK is `advanced-snapshot-0.1.0-r35.apk`; its exact artifact hashes are
+the reliable standalone full-resolution still path plus the visible
+**Green-cast correction** action. The exact package pair is recorded in
+`docs/VALIDATION.md`. The main APK is `advanced-snapshot-0.1.0-r36.apk`; its exact artifact hashes are
 recorded in
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md`.
 

@@ -88,6 +88,15 @@ balance, focus or a measured matrix. Editing one of those four sliders changes
 the selector to **Custom**. Save a tuned result through **Calibrate → Save
 Current Profile** when it should survive camera selection and app restarts.
 
+If the selected OnePlus 6T camera still looks green, press **Image Controls →
+Green-cast correction → Apply**. This applies the conservative row-sum-
+preserving matrix to the live preview and saved captures and turns automatic
+white balance off, as required for a standard `ColourCorrectionMatrix` request.
+Press **Reset** to return to automatic white balance and the sensor defaults.
+The action applies to the currently selected camera; for a camera-specific
+result, use **Camera calibration** with a grey card or colour chart and save the
+profile. The starting matrix is not factory calibration.
+
 The Software HDR switch uses the installed `advanced-snapshot-hdr` helper. It
 is off by default and requires automatic exposure. It creates three hidden
 temporary JPEGs, merges them, atomically installs the final JPEG and removes
@@ -113,22 +122,22 @@ development public key in `packaging/keys`; on a pmbootstrap workstation, set
 `packaging/postmarketos/README.md` and `docs/VALIDATION.md` for the exact source
 pin and reference results.
 
-## OnePlus 6T r35 package
+## OnePlus 6T r36 package
 
 The current reproducible package is source commit
-`d8eff869ffc98ca69b5d4c24d3537cd3660d2ece`, package revision r35. Build it
+`df308e9d95ba9d90ac6866010db3b95ce9d11de4`, package revision r36. Build it
 from the pinned recipe as described above, validate both APKs, and copy them
-to a booted phone. It contains the named Green-cast correction starting point
-and automatically disables AWB when that custom matrix is selected. The
+to a booted phone. It contains the visible Green-cast correction action and
+automatically disables AWB when that matrix is selected. The
 package is independent of distro Snapshot, so it can be upgraded or removed
 without replacing `/usr/bin/snapshot`:
 
 ```sh
-scp advanced-snapshot-0.1.0-r35.apk \
-  advanced-snapshot-lang-0.1.0-r35.apk user@PHONE:/tmp/
+scp advanced-snapshot-0.1.0-r36.apk \
+  advanced-snapshot-lang-0.1.0-r36.apk user@PHONE:/tmp/
 ssh user@PHONE 'sudo apk add --allow-untrusted \
-  /tmp/advanced-snapshot-0.1.0-r35.apk \
-  /tmp/advanced-snapshot-lang-0.1.0-r35.apk'
+  /tmp/advanced-snapshot-0.1.0-r36.apk \
+  /tmp/advanced-snapshot-lang-0.1.0-r36.apk'
 ```
 
 Stop any running Advanced Snapshot window before replacing the files, then

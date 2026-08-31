@@ -23,7 +23,7 @@ camera stack” must always agree.
 | Colour-processing presets | Sensor default, Neutral, Natural and Vivid starting points; manual tone edits become Custom | Existing `Gamma`, `Saturation`, `Contrast` and `Sharpness` controls | Preset selection changes only those four processing values and preserves exposure, white balance, focus and the saved colour matrix |
 | Gamma | Gamma UI with a 0.1–10 range and sensor-aware OnePlus startup defaults | Standard `Gamma` property when advertised by the node | The requested value is transported to preview/capture; unsupported third-party nodes leave the rest of the controls usable |
 | White balance | Automatic mode by default; disabling it enables bounded 0.1–4.0 red and blue gain controls while green remains 1.0 | Standard `AwbEnable` and two-element `ColourGains` array transport | Extreme gains visibly move the live pixels in the expected direction on all three OnePlus sensors; Auto restores statistics-driven regulation |
-| Colour correction matrix | Optional nine-value, row-major camera-RGB-to-sRGB editor applied live only while white balance is manual, with Identity, Green-cast correction and Colour boost starting points | Standard `ColourCorrectionMatrix`, `AwbEnable` and `ColourGains`; PipeWire must transport a nine-float array atomically | Identity leaves colours unchanged; the Green-cast starting point uses the OnePlus r34 moderate row-sum-preserving matrix and turns off AWB so it applies; bounded chart-derived values alter preview and capture; disabling the custom matrix restores identity/sensor processing |
+| Colour correction matrix | Optional nine-value, row-major camera-RGB-to-sRGB editor plus a visible one-tap Green-cast correction action in Image Controls; Identity, Green-cast correction and Colour boost are starting points | Standard `ColourCorrectionMatrix`, `AwbEnable` and `ColourGains`; PipeWire must transport a nine-float array atomically | Apply affects the current camera's preview and capture, turns off AWB so the matrix is active, and is reversible with Reset; Identity leaves colours unchanged; bounded chart-derived values alter preview and capture; disabling the custom matrix restores identity/sensor processing |
 | Camera calibration | Mobile dialog for grey-card/colour-chart tuning; saves, applies and clears exposure, white-balance, colour-matrix, tone and optional focus values in a versioned profile per physical sensor | The same standard image controls plus stable node identity | A version 3 profile survives app restart and applies only to its sensor; no ephemeral PipeWire serial is persisted |
 | Zoom | One shared 1x–4x value controlled by the image-control slider, two-finger preview pinch and a tappable reset chip in the toolbar above the preview; non-finite or sub-1 camera limits safely fall back to 1x | Camerabin zoom/crop | Pinch, slider and chip remain synchronized; the chip does not cover the photo/video/QR selector; two-finger zoom does not submit a tap-focus request; preview and still framing agree without an invalid clamp |
 | Timer/grid | Persisted app setting | None beyond capture support | Survives restart and affects only requested capture/UI |
@@ -64,7 +64,10 @@ standard colour-matrix control, but it does not provide factory coefficients,
 a lens-shading table or vendor denoise controls. **Identity**, **Green-cast
 correction** and **Colour boost** are deliberately labelled starting points.
 Green-cast correction is a moderate scene-level matrix, not a factory
-calibration. Use a grey card and colour
+calibration. The live Image Controls drawer also exposes the same correction as
+an explicit Apply action for quick testing on the currently selected camera;
+Apply turns automatic white balance off and Reset returns to the automatic
+sensor path. Use a grey card and colour
 chart in controlled, even light, retain the reference files and do not claim
 Android-vendor colour parity without independent measurements.
 

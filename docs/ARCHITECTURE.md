@@ -142,6 +142,13 @@ turning AWB back on lets the sensor tuning choose its temperature-dependent
 matrix again. Matrix controls and the two convenience presets are calibration
 inputs, not claims that a factory profile has been recovered.
 
+The Image Controls drawer exposes a separate **Green-cast correction → Apply**
+action. It uses the conservative OnePlus row-sum-preserving starting matrix,
+explicitly disables AWB, and marks the selector Custom so the user can see that
+the live pipeline is no longer automatic. **Reset** reverses the action. This
+is intentionally the same reproducible starting point as the calibration
+dialog, not a hidden per-scene or factory calibration.
+
 ## Colour-processing presets
 
 The Image Controls panel offers four tone presets implemented entirely in the

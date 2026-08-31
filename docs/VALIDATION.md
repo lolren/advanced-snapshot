@@ -1,5 +1,25 @@
 # Validation record
 
+## 0.1.0-r36 live green-cast control package checkpoint
+
+- Date: 2026-08-31
+- Source commit: `df308e9d95ba9d90ac6866010db3b95ce9d11de4`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r33 and PipeWire SPA r8
+- Source archive SHA-512:
+  `6af7616496de04c98f1eb985fb1beaca509ee506d6bfe79c735e497def95443a04599c8913e8e46787cc5624ce582529e372a753000c2f0d0acb8c9d9caea2a4`
+- Main APK: `advanced-snapshot-0.1.0-r36.apk`
+  (`8a0f08defead7406823b269f92a161963e754770e26e698ed508a1e3c631d37c`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r36.apk`
+  (`32a2893a5e2fa2a68c6a17a2f4581e9a5fa1c78b75cccbb4efd2f04dc5888a5e`)
+
+The package adds a visible **Green-cast correction → Apply** action to the live
+Image Controls drawer. It applies the conservative, row-sum-preserving OnePlus
+matrix to the current camera and turns automatic white balance off so the
+standard libcamera matrix request is active. **Reset** restores the automatic
+path. The action is a repeatable starting point, not a factory CCM or a claim
+of Android-vendor ISP parity.
+
 ## 0.1.0-r35 green-cast preset package checkpoint
 
 - Date: 2026-08-31
