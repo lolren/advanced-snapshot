@@ -78,6 +78,10 @@ and restores preview. Generic cameras without such a mode retain the inherited
 path. `tests/device/probe-camerabin-capture.py` preserves the three wrapper
 strategies used to reproduce the lower-level failure.
 
+The reproducible r35 build produced main APK SHA-256
+`1b8ea0f0f6449665876a72a1846b606accecbc9e90d1b984d02da534002e1e08` and
+language APK SHA-256
+`902e890dacc1e7f5920b0f625c1daa5bdec26053685c3e111ac6d91e0f08e974`.
 The previous reference r34 build produced main APK SHA-256
 `7f94c88bbc5d7ec300a7f2f1481dff7f882bd43480506fef18f79fdffa390c74` and
 language APK SHA-256

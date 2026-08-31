@@ -1,5 +1,32 @@
 # Validation record
 
+## 0.1.0-r35 green-cast preset package checkpoint
+
+- Date: 2026-08-31
+- Source commit: `d8eff869ffc98ca69b5d4c24d3537cd3660d2ece`
+- Target: postmarketOS edge, AArch64, musl
+- Lower stack: kernel r10, libcamera/IPA r33 and PipeWire SPA r8
+- Source archive SHA-512:
+  `145723b788222c34fbae795e7a90bc36560fa048a69c9026ca930fa62c83b558f898b213d6bb27e5e7f8ded46caa65bd49a2b5a2afced1a5f56ec88232ca9801`
+- Main APK: `advanced-snapshot-0.1.0-r35.apk`
+  (`1b8ea0f0f6449665876a72a1846b606accecbc9e90d1b984d02da534002e1e08`)
+- Language APK: `advanced-snapshot-lang-0.1.0-r35.apk`
+  (`902e890dacc1e7f5920b0f625c1daa5bdec26053685c3e111ac6d91e0f08e974`)
+
+The exact pinned archive completed the optimized and auditable AArch64
+package builds. The complete application test phase passed, and the artifact
+validator accepted the local pmbootstrap signature, ARM64 executables, exact
+file manifest, language split, metadata, schema, resource namespace, stale
+identifier scan and mobile UI contract. The GtkBuilder resource includes the
+named Green-cast correction starting point. Selecting that custom matrix turns
+automatic white balance off because the lower libcamera contract applies a
+custom matrix only in manual-WB mode.
+
+This is an offline artifact checkpoint. The r35 APK is ready for an
+application-only upgrade, but its physical phone installation and live camera
+acceptance remain open while the connected phone's SSH session stalls after
+authentication. The matching r33 lower stack remains the known-good rollback.
+
 ## 0.1.0-r34 camera-page live-controls checkpoint
 
 - Date: 2026-08-31
