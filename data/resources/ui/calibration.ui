@@ -42,7 +42,7 @@
             </child>
             <child>
               <object class="GtkLabel">
-                <property name="label" translatable="yes">Use a neutral grey card or colour chart in even light. Start with automatic white balance, then turn it off and adjust red and blue gains until the grey target is neutral. Tune Gamma, Colour, Contrast, Detail, Exposure and focus, capture a reference photo, then save the values below for this physical sensor.</property>
+                <property name="label" translatable="yes">Use a neutral grey card or colour chart in even light. Start with automatic white balance, then turn it off and adjust red and blue gains until the grey target is neutral. The green-cast preset below also switches to manual white balance automatically. Tune Gamma, Colour, Contrast, Detail, Exposure and focus, capture a reference photo, then save the values below for this physical sensor.</property>
                 <property name="wrap">True</property>
                 <property name="wrap-mode">word-char</property>
                 <property name="halign">fill</property>
@@ -240,6 +240,22 @@
                     <property name="subtitle-lines">2</property>
                     <child>
                       <object class="GtkButton" id="identity_matrix_button">
+                        <property name="label" translatable="yes">Use</property>
+                        <property name="valign">center</property>
+                        <style>
+                          <class name="pill"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwActionRow">
+                    <property name="title" translatable="yes">Green-cast correction</property>
+                    <property name="subtitle" translatable="yes">Moderate grey-preserving correction for a green tint; selects manual white balance</property>
+                    <property name="subtitle-lines">2</property>
+                    <child>
+                      <object class="GtkButton" id="green_cast_matrix_button">
                         <property name="label" translatable="yes">Use</property>
                         <property name="valign">center</property>
                         <style>

@@ -30,7 +30,7 @@ postmarketOS into an unmaintainable permanent fork.
 | Exposure compensation | Requests standard -1 to +1 EV from the lower stack | Implemented |
 | Manual shutter and analogue gain | Disables automatic exposure and submits real `ExposureTime` and `AnalogueGain` controls in microseconds and linear gain units | Implemented in source and lower-layer package; sensor-scene acceptance remains separate |
 | Colour, contrast and detail | Sends standard saturation, contrast and sharpness controls to preview and capture | Implemented |
-| Colour-processing presets | Offers Sensor default, Neutral, Natural and Vivid starting points without changing exposure, white balance, focus or a measured matrix; manual edits are labelled Custom | Implemented |
+| Colour-processing presets | Offers Sensor default, Neutral, Natural and Vivid starting points without changing exposure, white balance, focus or a measured matrix; the calibration dialog also provides the r34 green-cast correction preset and labels manual edits Custom | Implemented |
 | Gamma tone control | Exposes the standard libcamera `Gamma` control for mid-tone tuning and selects the OnePlus sensor's conservative 2.0/2.1/2.2 startup default from the stable node model | Implemented on nodes advertising `Gamma`; calibration remains scene-dependent |
 | Automatic/manual white balance | Keeps statistics-driven AWB enabled by default or submits standard red/blue `ColourGains` to the software ISP while green remains 1.0 | Implemented and live-validated on IMX371, IMX376 and IMX519 |
 | Writable colour correction | Sends a bounded 3×3 `ColourCorrectionMatrix` together with manual white balance so chart-derived camera RGB corrections affect preview and capture in the software ISP | Implemented when the lower stack advertises the standard control; identity and a neutral-preserving colour-boost matrix are starting points, not factory calibration |
@@ -85,8 +85,11 @@ See [docs/FEATURES.md](docs/FEATURES.md) for the acceptance matrix and
   disable it and adjust red/blue gains until a neutral target is neutral. If
   the camera advertises `ColourCorrectionMatrix`, enable **Use custom colour
   matrix** and tune the nine row-major camera-RGB-to-sRGB coefficients against
-  a colour chart. Keep each row sum near 1 while correcting hue; **Identity**
-  and **Colour boost** are safe starting points, not measured values. Adjust
+  a colour chart. Keep each row sum near 1 while correcting hue; **Identity**,
+  **Green-cast correction** and **Colour boost** are safe starting points, not
+  measured values. Green-cast correction uses the same moderate
+  grey-preserving matrix as the OnePlus r34 profiles and automatically selects
+  manual white balance so the matrix is active. Adjust
   Gamma, Colour, Contrast, Detail, Exposure and focus while viewing the live
   preview, capture a reference photo, then press **Calibrate → Save Current
   Profile**. The profile is

@@ -1442,9 +1442,21 @@ impl Camera {
                 );
                 dialog.set_current_profile(camera_widget.current_profile());
                 if dialog.custom_colour_matrix() {
-                    dialog.set_status(
-                        "Colour matrix will update the live preview while manual white balance is active.",
-                    );
+                    let auto_white_balance_was_enabled = camera_widget
+                        .imp()
+                        .auto_white_balance_switch
+                        .is_active();
+                    if auto_white_balance_was_enabled {
+                        camera_widget
+                            .imp()
+                            .auto_white_balance_switch
+                            .set_active(false);
+                    }
+                    dialog.set_status(if auto_white_balance_was_enabled {
+                        "Custom matrix selected; automatic white balance was turned off so it applies to the live preview."
+                    } else {
+                        "Colour matrix will update the live preview while manual white balance is active."
+                    });
                 } else {
                     dialog.set_status("Sensor/identity colour processing selected.");
                 }

@@ -8,6 +8,7 @@ use std::rc::Rc;
 use crate::camera_profile::{self, CameraProfile};
 
 const COLOUR_BOOST_CCM: [f64; 9] = [1.10, -0.05, -0.05, -0.05, 1.10, -0.05, -0.05, -0.05, 1.10];
+const GREEN_CAST_CCM: [f64; 9] = [0.95, 0.05, 0.0, 0.05, 0.90, 0.05, 0.0, 0.05, 0.95];
 
 mod imp {
     use super::*;
@@ -47,6 +48,8 @@ mod imp {
         pub ccm_22: TemplateChild<adw::SpinRow>,
         #[template_child]
         pub identity_matrix_button: TemplateChild<gtk::Button>,
+        #[template_child]
+        pub green_cast_matrix_button: TemplateChild<gtk::Button>,
         #[template_child]
         pub colour_boost_matrix_button: TemplateChild<gtk::Button>,
         #[template_child]
@@ -110,6 +113,11 @@ impl CalibrationDialog {
             #[weak(rename_to = dialog)]
             dialog,
             move |_| dialog.set_colour_calibration(true, camera_profile::IDENTITY_CCM)
+        ));
+        imp.green_cast_matrix_button.connect_clicked(glib::clone!(
+            #[weak(rename_to = dialog)]
+            dialog,
+            move |_| dialog.set_colour_calibration(true, GREEN_CAST_CCM)
         ));
         imp.colour_boost_matrix_button.connect_clicked(glib::clone!(
             #[weak(rename_to = dialog)]
@@ -265,4 +273,17 @@ fn format_profile(profile: CameraProfile) -> String {
         "EV {:+.1} · {exposure_mode} · {white_balance} · {colour_matrix} · gamma {:.1} · colour {:.2} · contrast {:.2} · detail {:.2} · focus {focus_mode}",
         profile.exposure, profile.gamma, profile.saturation, profile.contrast, profile.sharpness,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GREEN_CAST_CCM;
+
+    #[test]
+    fn green_cast_matrix_preserves_equal_channel_grey() {
+        for row in GREEN_CAST_CCM.chunks_exact(3) {
+            let sum: f64 = row.iter().sum();
+            assert!((sum - 1.0).abs() < 1.0e-12);
+        }
+    }
 }
